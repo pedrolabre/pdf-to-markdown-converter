@@ -45,9 +45,13 @@ pdf-to-markdown-converter/
 ├── README.md
 ├── src/
 │   └── pdf_to_markdown_converter/
-│       └── __init__.py
+│       ├── __init__.py
+│       └── domain/
+│           ├── __init__.py
+│           └── models.py
 └── tests/
     ├── __init__.py
     ├── conftest.py
+    ├── test_models.py
     └── test_scaffold.py
 ```
