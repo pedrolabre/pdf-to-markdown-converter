@@ -48,6 +48,7 @@ pdf-to-markdown-converter/
 │       ├── __init__.py
 │       ├── core/
 │       │   ├── __init__.py
+│       │   ├── line_normalizer.py
 │       │   └── text_cleaner.py
 │       └── domain/
 │           ├── __init__.py
@@ -55,6 +56,7 @@ pdf-to-markdown-converter/
 └── tests/
     ├── __init__.py
     ├── conftest.py
+    ├── test_line_normalizer.py
     ├── test_models.py
     ├── test_scaffold.py
     └── test_text_cleaner.py
