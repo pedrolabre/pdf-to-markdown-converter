@@ -48,6 +48,7 @@ pdf-to-markdown-converter/
 │       ├── __init__.py
 │       ├── core/
 │       │   ├── __init__.py
+│       │   ├── detector.py
 │       │   ├── line_normalizer.py
 │       │   ├── pdf_reader.py
 │       │   └── text_cleaner.py
@@ -57,6 +58,7 @@ pdf-to-markdown-converter/
 └── tests/
     ├── __init__.py
     ├── conftest.py
+    ├── test_detector.py
     ├── test_line_normalizer.py
     ├── test_models.py
     ├── test_pdf_reader.py
