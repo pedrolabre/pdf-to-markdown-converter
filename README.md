@@ -50,6 +50,7 @@ pdf-to-markdown-converter/
 │       │   ├── __init__.py
 │       │   ├── detector.py
 │       │   ├── line_normalizer.py
+│       │   ├── native_extractor.py
 │       │   ├── pdf_reader.py
 │       │   └── text_cleaner.py
 │       └── domain/
@@ -61,6 +62,7 @@ pdf-to-markdown-converter/
     ├── test_detector.py
     ├── test_line_normalizer.py
     ├── test_models.py
+    ├── test_native_extractor.py
     ├── test_pdf_reader.py
     ├── test_scaffold.py
     └── test_text_cleaner.py
