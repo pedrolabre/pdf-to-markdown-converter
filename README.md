@@ -51,6 +51,7 @@ pdf-to-markdown-converter/
 │       │   ├── detector.py
 │       │   ├── line_normalizer.py
 │       │   ├── native_extractor.py
+│       │   ├── ocr_extractor.py
 │       │   ├── pdf_reader.py
 │       │   ├── tesseract_env.py
 │       │   └── text_cleaner.py
@@ -64,6 +65,7 @@ pdf-to-markdown-converter/
     ├── test_line_normalizer.py
     ├── test_models.py
     ├── test_native_extractor.py
+    ├── test_ocr_extractor.py
     ├── test_pdf_reader.py
     ├── test_scaffold.py
     ├── test_tesseract_env.py
