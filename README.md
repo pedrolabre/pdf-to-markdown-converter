@@ -52,6 +52,7 @@ pdf-to-markdown-converter/
 │       │   ├── line_normalizer.py
 │       │   ├── native_extractor.py
 │       │   ├── pdf_reader.py
+│       │   ├── tesseract_env.py
 │       │   └── text_cleaner.py
 │       └── domain/
 │           ├── __init__.py
@@ -65,5 +66,6 @@ pdf-to-markdown-converter/
     ├── test_native_extractor.py
     ├── test_pdf_reader.py
     ├── test_scaffold.py
+    ├── test_tesseract_env.py
     └── test_text_cleaner.py
 ```
