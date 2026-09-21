@@ -57,9 +57,12 @@ pdf-to-markdown-converter/
 │       │   ├── pdf_reader.py
 │       │   ├── tesseract_env.py
 │       │   └── text_cleaner.py
-│       └── domain/
+│       ├── domain/
+│       │   ├── __init__.py
+│       │   └── models.py
+│       └── exporters/
 │           ├── __init__.py
-│           └── models.py
+│           └── markdown_exporter.py
 └── tests/
     ├── __init__.py
     ├── conftest.py
@@ -67,6 +70,7 @@ pdf-to-markdown-converter/
     ├── test_detector.py
     ├── test_line_normalizer.py
     ├── test_markdown_builder.py
+    ├── test_markdown_exporter.py
     ├── test_models.py
     ├── test_native_extractor.py
     ├── test_ocr_extractor.py
