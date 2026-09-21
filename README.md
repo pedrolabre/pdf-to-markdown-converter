@@ -51,6 +51,7 @@ pdf-to-markdown-converter/
 │       │   ├── block_classifier.py
 │       │   ├── detector.py
 │       │   ├── line_normalizer.py
+│       │   ├── markdown_builder.py
 │       │   ├── native_extractor.py
 │       │   ├── ocr_extractor.py
 │       │   ├── pdf_reader.py
@@ -65,6 +66,7 @@ pdf-to-markdown-converter/
     ├── test_block_classifier.py
     ├── test_detector.py
     ├── test_line_normalizer.py
+    ├── test_markdown_builder.py
     ├── test_models.py
     ├── test_native_extractor.py
     ├── test_ocr_extractor.py
