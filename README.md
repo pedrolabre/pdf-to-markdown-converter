@@ -62,7 +62,8 @@ pdf-to-markdown-converter/
 │       │   └── models.py
 │       └── exporters/
 │           ├── __init__.py
-│           └── markdown_exporter.py
+│           ├── markdown_exporter.py
+│           └── styles.py
 └── tests/
     ├── __init__.py
     ├── conftest.py
@@ -76,6 +77,7 @@ pdf-to-markdown-converter/
     ├── test_ocr_extractor.py
     ├── test_pdf_reader.py
     ├── test_scaffold.py
+    ├── test_styles.py
     ├── test_tesseract_env.py
     └── test_text_cleaner.py
 ```
