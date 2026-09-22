@@ -55,6 +55,7 @@ pdf-to-markdown-converter/
 │       │   ├── native_extractor.py
 │       │   ├── ocr_extractor.py
 │       │   ├── pdf_reader.py
+│       │   ├── pipeline.py
 │       │   ├── tesseract_env.py
 │       │   └── text_cleaner.py
 │       ├── domain/
@@ -78,6 +79,7 @@ pdf-to-markdown-converter/
     ├── test_native_extractor.py
     ├── test_ocr_extractor.py
     ├── test_pdf_reader.py
+    ├── test_pipeline.py
     ├── test_scaffold.py
     ├── test_styles.py
     ├── test_tesseract_env.py
