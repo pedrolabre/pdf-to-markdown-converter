@@ -62,6 +62,7 @@ pdf-to-markdown-converter/
 │       │   └── models.py
 │       └── exporters/
 │           ├── __init__.py
+│           ├── html_exporter.py
 │           ├── markdown_exporter.py
 │           └── styles.py
 └── tests/
@@ -69,6 +70,7 @@ pdf-to-markdown-converter/
     ├── conftest.py
     ├── test_block_classifier.py
     ├── test_detector.py
+    ├── test_html_exporter.py
     ├── test_line_normalizer.py
     ├── test_markdown_builder.py
     ├── test_markdown_exporter.py
