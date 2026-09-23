@@ -199,6 +199,7 @@ pdf-to-markdown-converter/
 │       │   ├── block_classifier.py
 │       │   ├── detector.py
 │       │   ├── line_normalizer.py
+│       │   ├── link_extractor.py
 │       │   ├── markdown_builder.py
 │       │   ├── native_extractor.py
 │       │   ├── ocr_extractor.py
@@ -229,6 +230,7 @@ pdf-to-markdown-converter/
     ├── test_gui.py
     ├── test_html_exporter.py
     ├── test_line_normalizer.py
+    ├── test_link_extractor.py
     ├── test_markdown_builder.py
     ├── test_markdown_exporter.py
     ├── test_models.py

@@ -6,6 +6,10 @@ from typing import Any
 import pymupdf
 
 from pdf_to_markdown_converter.core.line_normalizer import normalize_line_breaks
+from pdf_to_markdown_converter.core.link_extractor import (
+    apply_links_to_block,
+    map_page_words_to_links,
+)
 from pdf_to_markdown_converter.core.pdf_reader import open_pdf
 from pdf_to_markdown_converter.core.text_cleaner import clean_text
 from pdf_to_markdown_converter.domain.models import (
@@ -126,9 +130,10 @@ def extract_page_blocks(
         page_number = page.number + 1
 
     raw_blocks = page.get_text("blocks")
+    words_by_block = map_page_words_to_links(page)
     blocks: list[TextBlock] = []
 
-    for raw_block in raw_blocks:
+    for b_idx, raw_block in enumerate(raw_blocks):
         x0, y0, x1, y1, text, _block_no, block_type = raw_block[:7]
         if block_type != 0:
             continue
@@ -142,6 +147,9 @@ def extract_page_blocks(
             norm_str = normalize_line_breaks(cleaned).strip()
         else:
             norm_str = raw_str.strip()
+
+        if words_by_block and b_idx in words_by_block:
+            norm_str, raw_str = apply_links_to_block(words_by_block[b_idx], norm_str, raw_str)
 
         bbox = (
             round(float(x0), 2),
