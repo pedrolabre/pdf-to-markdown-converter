@@ -204,3 +204,21 @@ def test_native_extractor_class(tmp_path: Path) -> None:
     assert doc_struct.total_pages == 1
     assert len(doc_struct.blocks) == 1
     doc.close()
+
+
+def test_sort_blocks_spatially_multi_column_pruning() -> None:
+    # Cria grade com 20 blocos em 2 colunas verticais desordenadas
+    col1 = [_make_block(f"C1_{i}", 50.0, 100.0 + i * 40.0, 250.0, 130.0 + i * 40.0) for i in range(10)]
+    col2 = [_make_block(f"C2_{i}", 300.0, 100.0 + i * 40.0, 500.0, 130.0 + i * 40.0) for i in range(10)]
+    header = _make_block("Header", 50.0, 30.0, 500.0, 70.0)
+    footer = _make_block("Footer", 50.0, 550.0, 500.0, 590.0)
+
+    # Embaralha os blocos intencionalmente
+    shuffled = [footer] + col2[5:] + col1[3:7] + [header] + col1[:3] + col2[:5] + col1[7:]
+    sorted_blocks = sort_blocks_spatially(shuffled)
+
+    assert len(sorted_blocks) == 22
+    assert sorted_blocks[0].raw_text == "Header"
+    assert [b.raw_text for b in sorted_blocks[1:11]] == [f"C1_{i}" for i in range(10)]
+    assert [b.raw_text for b in sorted_blocks[11:21]] == [f"C2_{i}" for i in range(10)]
+    assert sorted_blocks[21].raw_text == "Footer"

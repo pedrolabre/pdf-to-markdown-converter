@@ -98,29 +98,60 @@ def clean_text(
     if not text:
         return ""
 
-    result = text
+    if not (remove_nulls or remove_replacements or remove_controls or remove_invisible or normalize_space_chars):
+        result = text
+    else:
+        out: list[str] = []
+        for ch in text:
+            if remove_nulls and ch == "\x00":
+                continue
 
-    if remove_nulls:
-        result = remove_null_bytes(result)
+            if remove_replacements and ch in _REPLACEMENT_CHARS:
+                continue
 
-    if remove_replacements:
-        result = remove_replacement_characters(result)
+            if ch == "\n" or ch == "\r":
+                if remove_controls and not keep_newlines:
+                    continue
+                out.append(ch)
+                continue
 
-    if remove_controls:
-        result = remove_control_characters(
-            result,
-            keep_newlines=keep_newlines,
-            keep_tabs=keep_tabs,
-        )
+            if ch == "\t":
+                if remove_controls and not keep_tabs:
+                    continue
+                out.append(ch)
+                continue
 
-    if remove_invisible:
-        result = remove_invisible_characters(
-            result,
-            remove_soft_hyphens=remove_soft_hyphens,
-        )
+            if ch == " ":
+                out.append(" ")
+                continue
 
-    if normalize_space_chars:
-        result = normalize_spaces(result)
+            code = ord(ch)
+            if 33 <= code <= 126:
+                out.append(ch)
+                continue
+
+            if code < 32:
+                if remove_controls:
+                    continue
+                out.append(ch)
+                continue
+
+            cat = unicodedata.category(ch)
+            if remove_controls and cat == "Cc":
+                continue
+
+            if remove_invisible and cat == "Cf":
+                if not remove_soft_hyphens and ch == "\u00ad":
+                    out.append(ch)
+                continue
+
+            if normalize_space_chars and cat == "Zs":
+                out.append(" ")
+                continue
+
+            out.append(ch)
+
+        result = "".join(out)
 
     if collapse_spaces:
         result = collapse_consecutive_spaces(result)

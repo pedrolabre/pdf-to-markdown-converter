@@ -150,3 +150,42 @@ def test_clean_text_edge_cases() -> None:
     assert clean_text("\x01\x02\x03\x04\x05") == ""
     assert clean_text("   ") == "   "
     assert clean_text("   ", collapse_spaces=True) == " "
+
+
+def test_clean_text_single_pass_equivalence():
+    complex_sample = (
+        "\x00Inicio\x01 com \ufffdsubstituicao\ufffc e controles \x07\x08\x0b\x0c\x1f!\n"
+        "Linha\tcom\u00a0espacos\u202fexoticos\u2003e invisivel\u200b\ufeff e hifen\u00adsuave.\r\n"
+        "Acentuacao latina completa: acao, coracao, cafe, saude, vo\u0302vo\u0302."
+    )
+    # Execucao sequencial das funcoes individuais
+    seq = complex_sample
+    seq = remove_null_bytes(seq)
+    seq = remove_replacement_characters(seq)
+    seq = remove_control_characters(seq, keep_newlines=True, keep_tabs=True)
+    seq = remove_invisible_characters(seq, remove_soft_hyphens=True)
+    seq = normalize_spaces(seq)
+    seq = normalize_unicode(seq, form="NFC")
+
+    # Execucao via passada unica otimizada de clean_text
+    single = clean_text(complex_sample)
+
+    assert single == seq
+    assert "Inicio com substituicao e controles !" in single
+    assert "Linha\tcom espacos exoticos e invisivel e hifensuave.\r\n" in single
+    assert "Acentuacao latina completa: acao, coracao, cafe, saude, vôvô." in single
+
+
+def test_clean_text_disabled_filters():
+    raw = "\x00\ufffd\x01\u200b\u00a0"
+    preserved = clean_text(
+        raw,
+        unicode_form="",
+        remove_nulls=False,
+        remove_replacements=False,
+        remove_controls=False,
+        remove_invisible=False,
+        normalize_space_chars=False,
+        collapse_spaces=False,
+    )
+    assert preserved == raw

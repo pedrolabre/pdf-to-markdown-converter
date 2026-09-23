@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import os
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -142,6 +143,7 @@ def resolve_tesseract_binary(custom_cmd: Path | str | None = None) -> Path | Non
     return None
 
 
+@functools.lru_cache(maxsize=32)
 def query_tesseract_version(binary_path: Path | str, timeout: float = 5.0) -> str | None:
     try:
         cmd = [str(binary_path), "--version"]
@@ -156,6 +158,7 @@ def query_tesseract_version(binary_path: Path | str, timeout: float = 5.0) -> st
         return None
 
 
+@functools.lru_cache(maxsize=32)
 def query_tesseract_languages(binary_path: Path | str, timeout: float = 5.0) -> tuple[str, ...]:
     try:
         cmd = [str(binary_path), "--list-langs"]
@@ -214,6 +217,14 @@ def configure_pytesseract(binary_path: Path | str | None = None) -> bool:
         return False
 
 
+def clear_tesseract_cache() -> None:
+    """Limpa o cache em memoria de diagnosticos e consultas do Tesseract."""
+    query_tesseract_version.cache_clear()
+    query_tesseract_languages.cache_clear()
+    get_tesseract_diagnostics.cache_clear()
+
+
+@functools.lru_cache(maxsize=32)
 def get_tesseract_diagnostics(custom_cmd: Path | str | None = None) -> TesseractDiagnostics:
     binary = resolve_tesseract_binary(custom_cmd)
     if not binary:

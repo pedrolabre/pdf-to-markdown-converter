@@ -110,19 +110,14 @@ def parse_ocr_data_to_blocks(
             else raw_text
         )
         bbox = (
-            round(min_x / eff_scale, 2),
-            round(min_y / eff_scale, 2),
-            round(max_x / eff_scale, 2),
-            round(max_y / eff_scale, 2),
+            round(min_x / eff_scale, 2), round(min_y / eff_scale, 2),
+            round(max_x / eff_scale, 2), round(max_y / eff_scale, 2),
         )
         blocks.append(
             TextBlock(
-                page_number=page_number,
-                block_type=BlockType.PARAGRAPH,
-                raw_text=raw_text,
-                normalized_text=norm_text,
-                bbox=bbox,
-                heading_level=0,
+                page_number=page_number, block_type=BlockType.PARAGRAPH,
+                raw_text=raw_text, normalized_text=norm_text,
+                bbox=bbox, heading_level=0,
             )
         )
 
@@ -240,9 +235,14 @@ def extract_page_text_ocr(
 def _extract_from_open_doc_ocr(
     doc: pymupdf.Document, source_path: str, **kwargs: Any
 ) -> DocumentStructure:
+    page_kwargs = dict(kwargs)
+    if page_kwargs.get("check_environment", True):
+        langs = [l.strip() for l in page_kwargs.get("lang", DEFAULT_LANG).split("+") if l.strip()]
+        ensure_tesseract_available(custom_cmd=page_kwargs.get("tesseract_cmd"), required_languages=langs)
+        page_kwargs["check_environment"] = False
     blocks: list[TextBlock] = []
     for i in range(len(doc)):
-        blocks.extend(extract_page_blocks_ocr(doc[i], page_number=i + 1, **kwargs))
+        blocks.extend(extract_page_blocks_ocr(doc[i], page_number=i + 1, **page_kwargs))
     return DocumentStructure(source_path, len(doc), ExtractionStrategy.OCR_FALLBACK, blocks)
 
 

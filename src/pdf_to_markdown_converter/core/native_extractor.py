@@ -1,3 +1,4 @@
+from collections import deque
 from collections.abc import Sequence
 from functools import cmp_to_key
 from pathlib import Path
@@ -35,6 +36,8 @@ def sort_blocks_spatially(
 
     def can_merge(b1: TextBlock, b2: TextBlock) -> bool:
         top, bottom = (b1, b2) if b1.bbox[1] <= b2.bbox[1] else (b2, b1)
+        if top.bbox[3] > bottom.bbox[1] + y_tol:
+            return False
         w1 = top.bbox[2] - top.bbox[0]
         w2 = bottom.bbox[2] - bottom.bbox[0]
         if max(w1, w2) <= 0:
@@ -44,18 +47,15 @@ def sort_blocks_spatially(
         x_overlap = min(top.bbox[2], bottom.bbox[2]) - max(top.bbox[0], bottom.bbox[0])
         if x_overlap / min(w1, w2) < 0.6:
             return False
-        if top.bbox[3] > bottom.bbox[1] + y_tol:
-            return False
+        y_min = top.bbox[3] - y_tol
+        y_max = bottom.bbox[1] + y_tol
+        top_left = min(top.bbox[0], bottom.bbox[0])
+        top_right = max(top.bbox[2], bottom.bbox[2])
         for other in blocks:
             if other is top or other is bottom:
                 continue
-            if (
-                other.bbox[1] >= top.bbox[3] - y_tol
-                and other.bbox[3] <= bottom.bbox[1] + y_tol
-            ):
-                oth_x_ov = min(
-                    max(top.bbox[2], bottom.bbox[2]), other.bbox[2]
-                ) - max(min(top.bbox[0], bottom.bbox[0]), other.bbox[0])
+            if other.bbox[1] >= y_min and other.bbox[3] <= y_max:
+                oth_x_ov = min(top_right, other.bbox[2]) - max(top_left, other.bbox[0])
                 if oth_x_ov > 0:
                     return False
         return True
@@ -63,8 +63,13 @@ def sort_blocks_spatially(
     n = len(blocks)
     adj: dict[int, set[int]] = {i: set() for i in range(n)}
     for i in range(n):
+        b1 = blocks[i]
         for j in range(i + 1, n):
-            if can_merge(blocks[i], blocks[j]):
+            b2 = blocks[j]
+            top, bottom = (b1, b2) if b1.bbox[1] <= b2.bbox[1] else (b2, b1)
+            if top.bbox[3] > bottom.bbox[1] + y_tol:
+                continue
+            if can_merge(top, bottom):
                 adj[i].add(j)
                 adj[j].add(i)
 
@@ -73,10 +78,10 @@ def sort_blocks_spatially(
     for i in range(n):
         if i not in visited:
             comp: list[int] = []
-            queue: list[int] = [i]
+            queue: deque[int] = deque([i])
             visited.add(i)
             while queue:
-                curr = queue.pop(0)
+                curr = queue.popleft()
                 comp.append(curr)
                 for neighbor in adj[curr]:
                     if neighbor not in visited:

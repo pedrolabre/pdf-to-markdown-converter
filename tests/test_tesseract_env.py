@@ -13,6 +13,7 @@ from pdf_to_markdown_converter.core.tesseract_env import (
     TesseractExecutionError,
     TesseractNotFoundError,
     _is_executable_file,
+    clear_tesseract_cache,
     configure_pytesseract,
     detect_tessdata_path,
     ensure_tesseract_available,
@@ -23,6 +24,13 @@ from pdf_to_markdown_converter.core.tesseract_env import (
     query_tesseract_version,
     resolve_tesseract_binary,
 )
+
+
+@pytest.fixture(autouse=True)
+def _reset_tesseract_cache_fixture():
+    clear_tesseract_cache()
+    yield
+    clear_tesseract_cache()
 
 
 def test_diagnostics_dataclass_membership_and_immutability():
@@ -139,6 +147,7 @@ def test_query_tesseract_version():
         ver = query_tesseract_version(Path("/fake/tesseract"))
         assert ver == "5.3.3.20231005"
 
+    clear_tesseract_cache()
     with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(
             stdout="",
@@ -146,9 +155,11 @@ def test_query_tesseract_version():
         )
         assert query_tesseract_version(Path("/fake/tesseract")) == "4.1.1"
 
+    clear_tesseract_cache()
     with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 5)):
         assert query_tesseract_version(Path("/fake/tesseract")) is None
 
+    clear_tesseract_cache()
     with patch("subprocess.run", side_effect=OSError("permission denied")):
         assert query_tesseract_version(Path("/fake/tesseract")) is None
 
@@ -165,10 +176,12 @@ srp
         langs = query_tesseract_languages(Path("/fake/tesseract"))
         assert langs == ("eng", "osd", "por", "srp")
 
+    clear_tesseract_cache()
     with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(stdout="", stderr="Error opening data file")
         assert query_tesseract_languages(Path("/fake/tesseract")) == ()
 
+    clear_tesseract_cache()
     with patch("subprocess.run", side_effect=subprocess.SubprocessError("failed")):
         assert query_tesseract_languages(Path("/fake/tesseract")) == ()
 
@@ -281,3 +294,47 @@ def test_real_system_smoke_test():
         assert diag.binary_path is not None
     else:
         assert diag.instructions is not None
+
+
+def test_tesseract_queries_and_diagnostics_cache_repetition():
+    binary = Path("/fake/bin/tesseract")
+
+    # 1. query_tesseract_version caching
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(stdout="tesseract 5.3.3\n", stderr="")
+        v1 = query_tesseract_version(binary)
+        v2 = query_tesseract_version(binary)
+        assert v1 == "5.3.3"
+        assert v2 == "5.3.3"
+        assert mock_run.call_count == 1
+
+    # 2. query_tesseract_languages caching
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(stdout="por\neng\n", stderr="")
+        l1 = query_tesseract_languages(binary)
+        l2 = query_tesseract_languages(binary)
+        assert l1 == ("eng", "por")
+        assert l2 == ("eng", "por")
+        assert mock_run.call_count == 1
+
+    # 3. get_tesseract_diagnostics caching
+    with patch("pdf_to_markdown_converter.core.tesseract_env.resolve_tesseract_binary", return_value=binary):
+        d1 = get_tesseract_diagnostics(binary)
+        d2 = get_tesseract_diagnostics(binary)
+        assert d1 is d2
+        assert d1.version == "5.3.3"
+
+
+def test_clear_tesseract_cache_resets_caches():
+    binary = Path("/fake/bin/tesseract")
+
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(stdout="tesseract 5.0.0\n", stderr="")
+        assert query_tesseract_version(binary) == "5.0.0"
+        assert mock_run.call_count == 1
+
+        clear_tesseract_cache()
+
+        mock_run.return_value = MagicMock(stdout="tesseract 5.1.0\n", stderr="")
+        assert query_tesseract_version(binary) == "5.1.0"
+        assert mock_run.call_count == 2
