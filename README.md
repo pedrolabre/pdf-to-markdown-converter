@@ -48,7 +48,8 @@ pdf-to-markdown-converter/
 │       ├── __init__.py
 │       ├── cli/
 │       │   ├── __init__.py
-│       │   └── info.py
+│       │   ├── info.py
+│       │   └── main.py
 │       ├── core/
 │       │   ├── __init__.py
 │       │   ├── block_classifier.py
@@ -74,6 +75,7 @@ pdf-to-markdown-converter/
     ├── conftest.py
     ├── test_block_classifier.py
     ├── test_cli_info.py
+    ├── test_cli_main.py
     ├── test_detector.py
     ├── test_html_exporter.py
     ├── test_line_normalizer.py
