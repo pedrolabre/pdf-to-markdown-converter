@@ -4,7 +4,7 @@ O **PDF to Markdown Converter** é uma ferramenta local-first desenvolvida em Py
 
 A ferramenta implementa uma esteira híbrida com análise de qualidade: extrai texto vetorial diretamente quando a camada textual é íntegra e aplica fallback transparente para OCR em memória quando o documento é escaneado, protegido ou possui codificações corrompidas.
 
-O repositório está em estágio preparatório e ainda não contém implementação funcional ou dependências instaladas. O desenvolvimento seguirá uma abordagem incremental orientada a testes (TDD), com separação estrita entre regras de domínio, adaptadores de extração, normalização e interfaces.
+A ferramenta fornece uma esteira de processamento completa que opera de forma desacoplada via interface de linha de comando (`pdf-to-markdown`) ou importação programática em Python.
 
 ## Objetivo
 
@@ -17,25 +17,141 @@ Converter arquivos PDF em documentos Markdown (`.md`) canônicos e páginas HTML
 - **Normalização Determinística**: Limpeza reproduzível de caracteres de controle, desfazimento de quebras de linha e reconstituição de hifenizações espúrias de margem.
 - **Desacoplamento Arquitetural**: Separação estrita entre o núcleo de extração/normalização e a interface de apresentação (CLI).
 
-## Escopo Previsto do MVP
+## Recursos Principais
 
-- Abertura segura e validação de PDFs com tratamento de restrições de permissão.
+- Abertura segura e validação de PDFs com tratamento de restrições de permissão e autenticação de senhas.
 - Classificação automática de estratégia de extração (`NATIVE_TEXT` vs. `OCR_FALLBACK`) com opção de sobrescrita manual (`--force-ocr`).
 - Extrator vetorial baseado em blocos espaciais e ordenação de coordenadas (PyMuPDF).
-- Extrator óptico em memória com suporte a DPI configurável e Tesseract OCR.
+- Extrator óptico em memória RAM com suporte a DPI configurável e Tesseract OCR.
 - Módulo de normalização textual (remoção de hifens de margem, caracteres de controle e unificação de parágrafos).
 - Reconstrutor semântico para Markdown (cabeçalhos hierárquicos, listas padronizadas e blocos de código cercados).
-- Exportador duplo: Markdown canônico e HTML5 com CSS responsivo embutido.
-- CLI com comandos de extração (`extract`) e diagnóstico de ambiente local (`info`).
-- Cobertura de testes automatizados com `pytest` em cada módulo.
+- Exportador duplo atômico: Markdown canônico e HTML5 com CSS responsivo embutido e suporte a modo escuro.
+- CLI com subcomandos de extração (`extract`), alias implícito direto e diagnóstico de ambiente local (`info`).
+- Cobertura de testes automatizados com `pytest` em cada módulo e suíte integrada ponta a ponta (E2E).
 
-## Stack Prevista
+## Stack Tecnológica
 
 - Python 3.10 ou superior.
 - PyMuPDF (`fitz`) para parsing de PDF e renderização de buffers de imagem em memória.
 - Tesseract OCR + `pytesseract` para extração óptica de caracteres.
 - Python-Markdown para compilação HTML.
 - `pytest` para testes unitários e de integração.
+
+## Instalação
+
+### 1. Clonar o Repositório e Criar Ambiente Virtual
+
+```bash
+git clone https://github.com/pedrolabre/pdf-to-markdown-converter.git
+cd pdf-to-markdown-converter
+
+python -m venv .venv
+
+# Windows (PowerShell)
+.venv\Scripts\Activate.ps1
+
+# Linux / macOS
+source .venv/bin/activate
+```
+
+### 2. Instalar Dependências do Pacote
+
+```bash
+# Instalação em modo editável com dependências de desenvolvimento e testes
+pip install -e ".[dev]"
+```
+
+### 3. Motor Tesseract OCR (Opcional, para Fallback Óptico)
+
+Caso deseje processar documentos digitalizados (scans ou imagens sem camada vetorial):
+
+- **Windows**: `winget install UB-Mannheim.TesseractOCR`
+- **Ubuntu/Debian**: `sudo apt-get install tesseract-ocr tesseract-ocr-por`
+- **macOS**: `brew install tesseract tesseract-lang`
+
+Para verificar se o Tesseract foi detectado corretamente pelo ambiente:
+
+```bash
+pdf-to-markdown info
+```
+
+## Uso da CLI
+
+Após a instalação, o executável `pdf-to-markdown` estará disponível no ambiente virtual.
+
+### 1. Diagnóstico do Ambiente (`info`)
+
+Verifica a prontidão das bibliotecas e o status do motor Tesseract:
+
+```bash
+# Diagnóstico visual formatado no terminal
+pdf-to-markdown info
+
+# Diagnóstico em formato JSON estruturado (para scripts/automações)
+pdf-to-markdown info --json
+```
+
+### 2. Conversão de Documentos (`extract`)
+
+#### Conversão Básica (Markdown + HTML5)
+Por padrão, a ferramenta gera simultaneamente o arquivo `.md` e o `.html` na mesma pasta do documento:
+
+```bash
+pdf-to-markdown extract documento.pdf
+
+# Ou utilizando o alias simplificado direto:
+pdf-to-markdown documento.pdf
+```
+
+#### Especificar Diretório ou Arquivo de Saída
+```bash
+# Destino em diretório específico
+pdf-to-markdown extract documento.pdf -o ./dist
+
+# Destino com caminho e nome de arquivo customizado
+pdf-to-markdown extract documento.pdf --output-path ./relatorios/resultado.md
+```
+
+#### Seleção Específica de Formato
+```bash
+# Exportar exclusivamente Markdown
+pdf-to-markdown extract documento.pdf --format md
+
+# Exportar exclusivamente HTML5
+pdf-to-markdown extract documento.pdf --format html
+```
+
+#### Forçar Extração Óptica via OCR
+```bash
+# Força o motor OCR com resolução e idiomas configurados
+pdf-to-markdown extract documento.pdf --force-ocr --dpi 300 --lang por+eng
+```
+
+#### Documento Protegido por Senha
+```bash
+pdf-to-markdown extract documento.pdf --password "senha_de_acesso"
+```
+
+#### Proteção Contra Sobrescrita e Modo Silencioso
+```bash
+# Bloqueia sobrescrita caso os arquivos de destino já existam
+pdf-to-markdown extract documento.pdf --no-overwrite
+
+# Execução em modo silencioso (suprime barras de progresso e resumos)
+pdf-to-markdown extract documento.pdf -q
+```
+
+## Execução de Testes
+
+A suíte de testes abrange testes unitários, modulares e de ponta a ponta (E2E):
+
+```bash
+# Executa toda a suíte de testes automatizados
+python -m pytest
+
+# Executa com saída detalhada
+python -m pytest -v
+```
 
 ## Estrutura do Projeto
 
@@ -77,6 +193,7 @@ pdf-to-markdown-converter/
     ├── test_cli_info.py
     ├── test_cli_main.py
     ├── test_detector.py
+    ├── test_e2e.py
     ├── test_html_exporter.py
     ├── test_line_normalizer.py
     ├── test_markdown_builder.py
