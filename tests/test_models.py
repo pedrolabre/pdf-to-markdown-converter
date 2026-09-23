@@ -22,6 +22,7 @@ def test_block_type_members() -> None:
     assert BlockType.HEADING == "heading"
     assert BlockType.CODE_BLOCK == "code_block"
     assert BlockType.LIST_ITEM == "list_item"
+    assert BlockType.TABLE == "table"
     assert isinstance(BlockType.PARAGRAPH, str)
 
 
@@ -146,6 +147,11 @@ def test_document_structure_to_markdown_rendering() -> None:
             block_type=BlockType.LIST_ITEM,
             raw_text="- Item com marcador previo",
         ),
+        TextBlock(
+            page_number=1,
+            block_type=BlockType.TABLE,
+            raw_text="| Col1 | Col2 |\n| --- | --- |\n| A | B |",
+        ),
     ]
     doc = DocumentStructure(
         source_path="doc.pdf",
@@ -158,7 +164,8 @@ def test_document_structure_to_markdown_rendering() -> None:
         "Primeiro paragrafo de explicacao.\n\n"
         "```\nprint('ola mundo')\n```\n\n"
         "- Item da lista sem marcador\n\n"
-        "- Item com marcador previo"
+        "- Item com marcador previo\n\n"
+        "| Col1 | Col2 |\n| --- | --- |\n| A | B |"
     )
     assert doc.to_markdown() == expected
 

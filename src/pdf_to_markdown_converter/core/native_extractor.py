@@ -1,5 +1,5 @@
 from collections import deque
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from functools import cmp_to_key
 from pathlib import Path
 from typing import Any
@@ -35,6 +35,8 @@ def sort_blocks_spatially(
     y_tol = max(y_tolerance, 0.0)
 
     def can_merge(b1: TextBlock, b2: TextBlock) -> bool:
+        if b1.block_type == BlockType.TABLE or b2.block_type == BlockType.TABLE:
+            return False
         top, bottom = (b1, b2) if b1.bbox[1] <= b2.bbox[1] else (b2, b1)
         if top.bbox[3] > bottom.bbox[1] + y_tol:
             return False
@@ -90,16 +92,9 @@ def sort_blocks_spatially(
 
             group_blocks = [blocks[idx] for idx in comp]
             group_blocks.sort(key=lambda b: (b.bbox[1], b.bbox[0]))
-            min_x = min(b.bbox[0] for b in group_blocks)
-            min_y = min(b.bbox[1] for b in group_blocks)
-            max_x = max(b.bbox[2] for b in group_blocks)
-            max_y = max(b.bbox[3] for b in group_blocks)
-            groups.append(
-                {
-                    "blocks": group_blocks,
-                    "bbox": (min_x, min_y, max_x, max_y),
-                }
-            )
+            min_x, min_y = min(b.bbox[0] for b in group_blocks), min(b.bbox[1] for b in group_blocks)
+            max_x, max_y = max(b.bbox[2] for b in group_blocks), max(b.bbox[3] for b in group_blocks)
+            groups.append({"blocks": group_blocks, "bbox": (min_x, min_y, max_x, max_y)})
 
     def compare_groups(g1: dict[str, Any], g2: dict[str, Any]) -> int:
         b1, b2 = g1["bbox"], g2["bbox"]
@@ -107,10 +102,8 @@ def sort_blocks_spatially(
             return -1
         if b2[3] <= b1[1] + y_tol:
             return 1
-        if b1[0] < b2[0]:
-            return -1
-        if b1[0] > b2[0]:
-            return 1
+        if b1[0] != b2[0]:
+            return -1 if b1[0] < b2[0] else 1
         return -1 if b1[1] < b2[1] else 1
 
     sorted_groups = sorted(groups, key=cmp_to_key(compare_groups))
@@ -119,6 +112,23 @@ def sort_blocks_spatially(
     for g in sorted_groups:
         result.extend(g["blocks"])
     return result
+
+
+def _extract_page_tables(
+    page: pymupdf.Page, page_number: int
+) -> tuple[list[TextBlock], list[tuple[float, float, float, float]]]:
+    blocks: list[TextBlock] = []
+    bboxes: list[tuple[float, float, float, float]] = []
+    try:
+        for tab in page.find_tables():
+            bbox = (round(float(tab.bbox[0]), 2), round(float(tab.bbox[1]), 2), round(float(tab.bbox[2]), 2), round(float(tab.bbox[3]), 2))
+            md = tab.to_markdown().strip()
+            if md:
+                bboxes.append(bbox)
+                blocks.append(TextBlock(page_number=page_number, block_type=BlockType.TABLE, raw_text=md, normalized_text=md, bbox=bbox))
+    except Exception:
+        pass
+    return blocks, bboxes
 
 
 def extract_page_blocks(
@@ -130,10 +140,12 @@ def extract_page_blocks(
     x_tolerance: float = DEFAULT_X_TOLERANCE,
     normalize: bool = True,
     ignore_empty: bool = True,
+    extract_tables: bool = True,
 ) -> list[TextBlock]:
     if page_number is None:
         page_number = page.number + 1
 
+    tab_blocks, tab_bboxes = _extract_page_tables(page, page_number) if extract_tables else ([], [])
     raw_blocks = page.get_text("blocks")
     words_by_block = map_page_words_to_links(page)
     blocks: list[TextBlock] = []
@@ -147,6 +159,10 @@ def extract_page_blocks(
         if ignore_empty and not raw_str.strip():
             continue
 
+        cx, cy = (float(x0) + float(x1)) / 2.0, (float(y0) + float(y1)) / 2.0
+        if any(tx0 <= cx <= tx1 and ty0 <= cy <= ty1 for tx0, ty0, tx1, ty1 in tab_bboxes):
+            continue
+
         if normalize:
             cleaned = clean_text(raw_str)
             norm_str = normalize_line_breaks(cleaned).strip()
@@ -156,30 +172,12 @@ def extract_page_blocks(
         if words_by_block and b_idx in words_by_block:
             norm_str, raw_str = apply_links_to_block(words_by_block[b_idx], norm_str, raw_str)
 
-        bbox = (
-            round(float(x0), 2),
-            round(float(y0), 2),
-            round(float(x1), 2),
-            round(float(y1), 2),
-        )
+        bbox = (round(float(x0), 2), round(float(y0), 2), round(float(x1), 2), round(float(y1), 2))
+        blocks.append(TextBlock(page_number=page_number, block_type=BlockType.PARAGRAPH, raw_text=raw_str, normalized_text=norm_str, bbox=bbox))
 
-        blocks.append(
-            TextBlock(
-                page_number=page_number,
-                block_type=BlockType.PARAGRAPH,
-                raw_text=raw_str,
-                normalized_text=norm_str,
-                bbox=bbox,
-                heading_level=0,
-            )
-        )
-
+    blocks.extend(tab_blocks)
     if sort_spatial and len(blocks) > 1:
-        blocks = sort_blocks_spatially(
-            blocks,
-            y_tolerance=y_tolerance,
-            x_tolerance=x_tolerance,
-        )
+        blocks = sort_blocks_spatially(blocks, y_tolerance=y_tolerance, x_tolerance=x_tolerance)
 
     return blocks
 
@@ -192,24 +190,29 @@ def _extract_from_open_doc(
     x_tolerance: float,
     normalize: bool,
     ignore_empty: bool,
+    extract_tables: bool = True,
+    page_callback: Callable[[int, int], None] | None = None,
 ) -> DocumentStructure:
     all_blocks: list[TextBlock] = []
-    for page_idx in range(len(doc)):
-        page = doc[page_idx]
+    total = len(doc)
+    for page_idx in range(total):
         page_blocks = extract_page_blocks(
-            page=page,
+            page=doc[page_idx],
             page_number=page_idx + 1,
             sort_spatial=sort_spatial,
             y_tolerance=y_tolerance,
             x_tolerance=x_tolerance,
             normalize=normalize,
             ignore_empty=ignore_empty,
+            extract_tables=extract_tables,
         )
         all_blocks.extend(page_blocks)
+        if page_callback:
+            page_callback(page_idx + 1, total)
 
     return DocumentStructure(
         source_path=source_path,
-        total_pages=len(doc),
+        total_pages=total,
         strategy=ExtractionStrategy.NATIVE_TEXT,
         blocks=all_blocks,
     )
@@ -224,29 +227,20 @@ def extract_document_structure(
     x_tolerance: float = DEFAULT_X_TOLERANCE,
     normalize: bool = True,
     ignore_empty: bool = True,
+    extract_tables: bool = True,
+    page_callback: Callable[[int, int], None] | None = None,
 ) -> DocumentStructure:
+    kwargs = dict(
+        sort_spatial=sort_spatial, y_tolerance=y_tolerance, x_tolerance=x_tolerance,
+        normalize=normalize, ignore_empty=ignore_empty, extract_tables=extract_tables,
+        page_callback=page_callback,
+    )
     if isinstance(source, pymupdf.Document):
-        return _extract_from_open_doc(
-            doc=source,
-            source_path=source.name or "<memory>",
-            sort_spatial=sort_spatial,
-            y_tolerance=y_tolerance,
-            x_tolerance=x_tolerance,
-            normalize=normalize,
-            ignore_empty=ignore_empty,
-        )
+        return _extract_from_open_doc(doc=source, source_path=source.name or "<memory>", **kwargs)
 
     resolved_path = str(source) if isinstance(source, (str, Path)) else "<memory>"
     with open_pdf(source, password=password) as doc:
-        return _extract_from_open_doc(
-            doc=doc,
-            source_path=resolved_path,
-            sort_spatial=sort_spatial,
-            y_tolerance=y_tolerance,
-            x_tolerance=x_tolerance,
-            normalize=normalize,
-            ignore_empty=ignore_empty,
-        )
+        return _extract_from_open_doc(doc=doc, source_path=resolved_path, **kwargs)
 
 
 class NativeExtractor:
@@ -258,39 +252,32 @@ class NativeExtractor:
         sort_spatial: bool = True,
         normalize: bool = True,
         ignore_empty: bool = True,
+        extract_tables: bool = True,
+        page_callback: Callable[[int, int], None] | None = None,
     ) -> None:
         self.y_tolerance = y_tolerance
         self.x_tolerance = x_tolerance
         self.sort_spatial = sort_spatial
         self.normalize = normalize
         self.ignore_empty = ignore_empty
+        self.extract_tables = extract_tables
+        self.page_callback = page_callback
 
-    def extract_page(
-        self,
-        page: pymupdf.Page,
-        page_number: int | None = None,
-    ) -> list[TextBlock]:
+    def extract_page(self, page: pymupdf.Page, page_number: int | None = None) -> list[TextBlock]:
         return extract_page_blocks(
-            page=page,
-            page_number=page_number,
-            sort_spatial=self.sort_spatial,
-            y_tolerance=self.y_tolerance,
-            x_tolerance=self.x_tolerance,
-            normalize=self.normalize,
-            ignore_empty=self.ignore_empty,
+            page=page, page_number=page_number, sort_spatial=self.sort_spatial,
+            y_tolerance=self.y_tolerance, x_tolerance=self.x_tolerance,
+            normalize=self.normalize, ignore_empty=self.ignore_empty, extract_tables=self.extract_tables,
         )
 
     def extract(
-        self,
-        source: pymupdf.Document | str | Path | bytes,
-        password: str = "",
+        self, source: pymupdf.Document | str | Path | bytes, password: str = "",
+        page_callback: Callable[[int, int], None] | None = None,
     ) -> DocumentStructure:
+        cb = page_callback or self.page_callback
         return extract_document_structure(
-            source=source,
-            password=password,
-            sort_spatial=self.sort_spatial,
-            y_tolerance=self.y_tolerance,
-            x_tolerance=self.x_tolerance,
-            normalize=self.normalize,
-            ignore_empty=self.ignore_empty,
+            source=source, password=password, sort_spatial=self.sort_spatial,
+            y_tolerance=self.y_tolerance, x_tolerance=self.x_tolerance,
+            normalize=self.normalize, ignore_empty=self.ignore_empty,
+            extract_tables=self.extract_tables, page_callback=cb,
         )

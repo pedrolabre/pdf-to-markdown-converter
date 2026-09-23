@@ -93,56 +93,85 @@ def format_list_item(text: str, preserve_ordered: bool = True) -> str:
 
         m_un = _UNORDERED_BULLET_PATTERN.match(line)
         if m_un:
-            indent = m_un.group(1)
-            body = m_un.group(3).strip()
-            formatted_lines.append(f"{indent}- {body}")
+            formatted_lines.append(f"{m_un.group(1)}- {m_un.group(3).strip()}")
             continue
 
-        m_ord = _ORDERED_BULLET_PATTERN.match(line)
+        m_ord = (
+            _ORDERED_BULLET_PATTERN.match(line)
+            or _ORDERED_PAREN_PATTERN.match(line)
+            or _ALPHA_ORDERED_PATTERN.match(line)
+        )
         if m_ord:
-            indent = m_ord.group(1)
-            num = m_ord.group(2)
-            body = m_ord.group(3).strip()
-            if preserve_ordered:
-                formatted_lines.append(f"{indent}{num}. {body}")
-            else:
-                formatted_lines.append(f"{indent}- {body}")
-            continue
-
-        m_paren = _ORDERED_PAREN_PATTERN.match(line)
-        if m_paren:
-            indent = m_paren.group(1)
-            num = m_paren.group(2)
-            body = m_paren.group(3).strip()
-            if preserve_ordered:
-                formatted_lines.append(f"{indent}{num}. {body}")
-            else:
-                formatted_lines.append(f"{indent}- {body}")
-            continue
-
-        m_alpha = _ALPHA_ORDERED_PATTERN.match(line)
-        if m_alpha:
-            indent = m_alpha.group(1)
-            marker = m_alpha.group(2)
-            body = m_alpha.group(3).strip()
-            if preserve_ordered:
-                formatted_lines.append(f"{indent}{marker}. {body}")
-            else:
-                formatted_lines.append(f"{indent}- {body}")
+            indent, marker, body = m_ord.group(1), m_ord.group(2), m_ord.group(3).strip()
+            formatted_lines.append(f"{indent}{marker}. {body}" if preserve_ordered else f"{indent}- {body}")
             continue
 
         if i == 0:
             indent_len = len(line) - len(line.lstrip())
-            indent = line[:indent_len]
-            formatted_lines.append(f"{indent}- {line_stripped}")
+            formatted_lines.append(f"{line[:indent_len]}- {line_stripped}")
         else:
             indent_len = len(line) - len(line.lstrip())
-            if indent_len >= 2:
-                formatted_lines.append(line.rstrip())
-            else:
-                formatted_lines.append(f"  {line_stripped}")
+            formatted_lines.append(line.rstrip() if indent_len >= 2 else f"  {line_stripped}")
 
     return "\n".join(formatted_lines)
+
+
+def format_table(text: str) -> str:
+    stripped = text.strip()
+    if not stripped:
+        return ""
+
+    raw_lines = [line.strip() for line in stripped.splitlines() if line.strip()]
+    if not raw_lines:
+        return ""
+
+    parsed_rows: list[list[str]] = []
+    has_separator = False
+
+    for line in raw_lines:
+        clean_bar = line.strip().strip("|").strip()
+        is_sep = bool(clean_bar and re.match(r"^[\s|:-]+$", line) and "-" in clean_bar)
+        if is_sep and not has_separator:
+            has_separator = True
+            continue
+
+        if "|" in line:
+            content = line
+            if content.startswith("|"):
+                content = content[1:]
+            if content.endswith("|") and not content.endswith(r"\|"):
+                content = content[:-1]
+            cells = [c.strip() for c in re.split(r"(?<!\\)\|", content)]
+        elif "\t" in line:
+            cells = [c.strip() for c in line.split("\t")]
+        else:
+            cells = [line]
+        parsed_rows.append(cells)
+
+    if not parsed_rows:
+        return ""
+
+    num_cols = max(len(r) for r in parsed_rows)
+    if num_cols == 0:
+        return ""
+
+    normalized_rows: list[list[str]] = []
+    for r in parsed_rows:
+        cleaned_cells = [c.replace("\n", " ").strip() for c in r]
+        while len(cleaned_cells) < num_cols:
+            cleaned_cells.append("")
+        normalized_rows.append(cleaned_cells)
+
+    header = normalized_rows[0]
+    data_rows = normalized_rows[1:]
+    header_str = f"| {' | '.join(header)} |"
+    sep_str = f"| {' | '.join(['---'] * num_cols)} |"
+    result_lines = [header_str, sep_str]
+
+    for d_row in data_rows:
+        result_lines.append(f"| {' | '.join(d_row)} |")
+
+    return "\n".join(result_lines)
 
 
 def format_paragraph(text: str) -> str:
@@ -169,6 +198,8 @@ def format_block(
         return format_code_block(text, default_language=default_code_language)
     elif block.block_type == BlockType.LIST_ITEM:
         return format_list_item(text, preserve_ordered=preserve_ordered_lists)
+    elif block.block_type == BlockType.TABLE:
+        return format_table(text)
     else:
         return format_paragraph(text)
 
@@ -240,26 +271,14 @@ class MarkdownBuilder:
             default_code_language=self.default_code_language,
         )
 
+    def format_table(self, text: str) -> str:
+        return format_table(text)
+
     def build_blocks(self, blocks: Sequence[TextBlock]) -> str:
-        return build_markdown(
-            blocks,
-            separator=self.separator,
-            preserve_ordered_lists=self.preserve_ordered_lists,
-            default_code_language=self.default_code_language,
-        )
+        return build_markdown(blocks, separator=self.separator, preserve_ordered_lists=self.preserve_ordered_lists, default_code_language=self.default_code_language)
 
     def build_document(self, doc: DocumentStructure) -> str:
-        return build_markdown(
-            doc,
-            separator=self.separator,
-            preserve_ordered_lists=self.preserve_ordered_lists,
-            default_code_language=self.default_code_language,
-        )
+        return build_markdown(doc, separator=self.separator, preserve_ordered_lists=self.preserve_ordered_lists, default_code_language=self.default_code_language)
 
     def build(self, content: Sequence[TextBlock] | DocumentStructure) -> str:
-        return build_markdown(
-            content,
-            separator=self.separator,
-            preserve_ordered_lists=self.preserve_ordered_lists,
-            default_code_language=self.default_code_language,
-        )
+        return build_markdown(content, separator=self.separator, preserve_ordered_lists=self.preserve_ordered_lists, default_code_language=self.default_code_language)

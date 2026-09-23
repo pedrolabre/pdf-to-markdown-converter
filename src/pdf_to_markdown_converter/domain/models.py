@@ -12,6 +12,8 @@ class BlockType(str, Enum):
     HEADING = "heading"
     CODE_BLOCK = "code_block"
     LIST_ITEM = "list_item"
+    TABLE = "table"
+
 
 
 @dataclass(frozen=True)
@@ -73,6 +75,8 @@ class DocumentStructure:
                     rendered_blocks.append(content)
                 else:
                     rendered_blocks.append(f"- {content}")
+            elif block.block_type == BlockType.TABLE:
+                rendered_blocks.append(content)
             else:
                 rendered_blocks.append(content)
 

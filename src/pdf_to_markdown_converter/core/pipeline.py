@@ -17,6 +17,7 @@ from pdf_to_markdown_converter.core.ocr_extractor import (
 )
 from pdf_to_markdown_converter.core.pdf_reader import open_pdf
 from pdf_to_markdown_converter.domain.models import (
+    BlockType,
     DocumentStructure,
     ExtractionResult,
     ExtractionStrategy,
@@ -47,25 +48,23 @@ SUPPORTED_FORMATS: frozenset[str] = frozenset({"md", "markdown", "html", "html5"
 
 
 def _notify_progress(
-    callback: Callable[..., None] | None,
-    stage: PipelineStage,
-    progress: float,
-    message: str,
+    callback: Callable[..., None] | None, stage: PipelineStage, progress: float, message: str,
 ) -> None:
     if callback is None:
         return
     try:
-        sig = inspect.signature(callback)
-        params_count = len(sig.parameters)
-        if params_count == 2:
+        if len(inspect.signature(callback).parameters) == 2:
             callback(stage, progress)
         else:
             callback(stage, progress, message)
-    except (ValueError, TypeError):
+    except Exception:
         try:
             callback(stage, progress, message)
-        except TypeError:
-            callback(stage, progress)
+        except Exception:
+            try:
+                callback(stage, progress)
+            except Exception:
+                pass
 
 
 class ConversionPipeline:
@@ -86,18 +85,13 @@ class ConversionPipeline:
 
         self.output_dir = Path(output_dir) if output_dir is not None else None
         self.force_ocr = force_ocr
-        self.dpi = dpi
-        self.lang = lang
-        self.overwrite = overwrite
+        self.dpi, self.lang, self.overwrite = dpi, lang, overwrite
         self.check_ocr_environment = check_ocr_environment
         self.progress_callback = progress_callback
-
         self._export_formats = self._validate_and_normalize_formats(export_formats)
         self.native_extractor = NativeExtractor()
         self.ocr_extractor = OcrExtractor(
-            dpi=self.dpi,
-            lang=self.lang,
-            check_environment=self.check_ocr_environment,
+            dpi=self.dpi, lang=self.lang, check_environment=self.check_ocr_environment
         )
 
     @property
@@ -127,24 +121,14 @@ class ConversionPipeline:
         output_path: str | Path | None,
         filename: str | None,
     ) -> tuple[Path | None, Path | None]:
-        target_stem: str
-        base_dir: Path | None = self.output_dir
-
+        target_stem = self._derive_stem(source, filename)
         if output_path is not None:
             out_p = Path(output_path)
             if out_p.is_dir() or str(output_path).endswith(("\\", "/")):
-                base_dir = out_p
-                target_stem = self._derive_stem(source, filename)
-                md_target = base_dir / f"{target_stem}.md"
-                html_target = base_dir / f"{target_stem}.html"
-            else:
-                md_target = out_p.with_suffix(".md")
-                html_target = out_p.with_suffix(".html")
-            return md_target, html_target
-
-        target_stem = self._derive_stem(source, filename)
-        dir_to_use = base_dir if base_dir is not None else Path.cwd()
-        return dir_to_use / f"{target_stem}.md", dir_to_use / f"{target_stem}.html"
+                return out_p / f"{target_stem}.md", out_p / f"{target_stem}.html"
+            return out_p.with_suffix(".md"), out_p.with_suffix(".html")
+        base_dir = self.output_dir if self.output_dir is not None else Path.cwd()
+        return base_dir / f"{target_stem}.md", base_dir / f"{target_stem}.html"
 
     @staticmethod
     def _derive_stem(
@@ -153,12 +137,9 @@ class ConversionPipeline:
     ) -> str:
         if filename:
             return Path(filename).stem
-        if isinstance(source, (str, Path)):
-            stem = Path(source).stem
-            if stem and stem != "<memory>":
-                return stem
-        if isinstance(source, pymupdf.Document) and source.name:
-            stem = Path(source.name).stem
+        src_name = getattr(source, "name", None) if isinstance(source, pymupdf.Document) else (source if isinstance(source, (str, Path)) else None)
+        if src_name:
+            stem = Path(src_name).stem
             if stem and stem != "<memory>":
                 return stem
         return "output"
@@ -171,20 +152,10 @@ class ConversionPipeline:
     ) -> tuple[str, str]:
         md_exported_path = ""
         html_exported_path = ""
-
-        wants_md = any(fmt in self._export_formats for fmt in ("md", "markdown"))
-        wants_html = any(fmt in self._export_formats for fmt in ("html", "html5"))
-
-        if wants_md and md_target is not None:
-            exporter = MarkdownExporter(overwrite=self.overwrite)
-            res = exporter.export_document(doc_structure, output_path=md_target)
-            md_exported_path = str(res)
-
-        if wants_html and html_target is not None:
-            exporter_html = HtmlExporter(overwrite=self.overwrite)
-            res_html = exporter_html.export_document(doc_structure, output_path=html_target)
-            html_exported_path = str(res_html)
-
+        if md_target is not None and any(fmt in self._export_formats for fmt in ("md", "markdown")):
+            md_exported_path = str(MarkdownExporter(overwrite=self.overwrite).export_document(doc_structure, output_path=md_target))
+        if html_target is not None and any(fmt in self._export_formats for fmt in ("html", "html5")):
+            html_exported_path = str(HtmlExporter(overwrite=self.overwrite).export_document(doc_structure, output_path=html_target))
         return md_exported_path, html_exported_path
 
     def _process_document(
@@ -198,18 +169,36 @@ class ConversionPipeline:
     ) -> ExtractionResult:
         total_pages = doc.page_count
         _notify_progress(self.progress_callback, PipelineStage.START, 0.05, "Iniciando processamento")
-
         _notify_progress(self.progress_callback, PipelineStage.DETECTING, 0.15, "Detectando estrategia")
         strategy = detect_extraction_strategy(doc, force_ocr=self.force_ocr, password=password)
 
-        _notify_progress(self.progress_callback, PipelineStage.EXTRACTING, 0.40, f"Extraindo ({strategy.value})")
+        _notify_progress(self.progress_callback, PipelineStage.EXTRACTING, 0.15, f"Extraindo ({strategy.value})")
+
+        def _on_page_progress(page_num: int, total: int) -> None:
+            tot = total if total > 0 else 1
+            progress = round(0.15 + 0.50 * (page_num / tot), 4)
+            msg = f"Extraindo pagina {page_num}/{tot} ({strategy.value})"
+            _notify_progress(self.progress_callback, PipelineStage.EXTRACTING, progress, msg)
+
         if strategy == ExtractionStrategy.OCR_FALLBACK:
-            extracted_doc = self.ocr_extractor.extract(doc, password=password)
+            extracted_doc = self.ocr_extractor.extract(doc, password=password, page_callback=_on_page_progress)
         else:
-            extracted_doc = self.native_extractor.extract(doc, password=password)
+            extracted_doc = self.native_extractor.extract(doc, password=password, page_callback=_on_page_progress)
 
         _notify_progress(self.progress_callback, PipelineStage.CLASSIFYING, 0.70, "Classificando blocos")
         classified_doc = classify_document_structure(extracted_doc)
+        if any(b.block_type == BlockType.TABLE for b in extracted_doc.blocks):
+            table_map = {i: b for i, b in enumerate(extracted_doc.blocks) if b.block_type == BlockType.TABLE}
+            new_blocks = list(classified_doc.blocks)
+            for idx, tbl in table_map.items():
+                if idx < len(new_blocks):
+                    new_blocks[idx] = tbl
+            classified_doc = DocumentStructure(
+                source_path=classified_doc.source_path,
+                total_pages=classified_doc.total_pages,
+                strategy=classified_doc.strategy,
+                blocks=new_blocks,
+            )
 
         _notify_progress(self.progress_callback, PipelineStage.EXPORTING, 0.85, "Exportando arquivos")
         md_target, html_target = self._resolve_output_targets(
@@ -263,19 +252,10 @@ class ConversionPipeline:
             )
 
     def convert_document(
-        self,
-        doc: pymupdf.Document,
-        *,
-        output_path: str | Path | None = None,
-        filename: str | None = None,
-        password: str = "",
+        self, doc: pymupdf.Document, *, output_path: str | Path | None = None,
+        filename: str | None = None, password: str = "",
     ) -> ExtractionResult:
-        return self.convert(
-            source=doc,
-            output_path=output_path,
-            filename=filename,
-            password=password,
-        )
+        return self.convert(source=doc, output_path=output_path, filename=filename, password=password)
 
 
 Pipeline = ConversionPipeline
@@ -297,18 +277,8 @@ def convert_pdf(
     progress_callback: Callable[..., None] | None = None,
 ) -> ExtractionResult:
     pipeline = ConversionPipeline(
-        output_dir=output_dir,
-        force_ocr=force_ocr,
-        dpi=dpi,
-        lang=lang,
-        overwrite=overwrite,
-        export_formats=export_formats,
-        check_ocr_environment=check_ocr_environment,
-        progress_callback=progress_callback,
+        output_dir=output_dir, force_ocr=force_ocr, dpi=dpi, lang=lang,
+        overwrite=overwrite, export_formats=export_formats,
+        check_ocr_environment=check_ocr_environment, progress_callback=progress_callback,
     )
-    return pipeline.convert(
-        source,
-        output_path=output_path,
-        filename=filename,
-        password=password,
-    )
+    return pipeline.convert(source, output_path=output_path, filename=filename, password=password)

@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 import io
 from pathlib import Path
 from typing import Any
@@ -125,32 +125,16 @@ def parse_ocr_data_to_blocks(
 
 
 def parse_ocr_text_to_blocks(
-    text: str,
-    page_number: int,
-    bbox: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0),
-    normalize: bool = True,
-    ignore_empty: bool = True,
+    text: str, page_number: int, bbox: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0),
+    normalize: bool = True, ignore_empty: bool = True,
 ) -> list[TextBlock]:
     blocks: list[TextBlock] = []
     for chunk in text.split("\n\n"):
         raw_str = chunk.strip()
         if ignore_empty and not raw_str:
             continue
-        norm_str = (
-            normalize_line_breaks(clean_text(raw_str)).strip()
-            if normalize
-            else raw_str
-        )
-        blocks.append(
-            TextBlock(
-                page_number=page_number,
-                block_type=BlockType.PARAGRAPH,
-                raw_text=raw_str,
-                normalized_text=norm_str,
-                bbox=bbox,
-                heading_level=0,
-            )
-        )
+        norm_str = normalize_line_breaks(clean_text(raw_str)).strip() if normalize else raw_str
+        blocks.append(TextBlock(page_number=page_number, block_type=BlockType.PARAGRAPH, raw_text=raw_str, normalized_text=norm_str, bbox=bbox, heading_level=0))
     return blocks
 
 
@@ -233,7 +217,10 @@ def extract_page_text_ocr(
 
 
 def _extract_from_open_doc_ocr(
-    doc: pymupdf.Document, source_path: str, **kwargs: Any
+    doc: pymupdf.Document,
+    source_path: str,
+    page_callback: Callable[[int, int], None] | None = None,
+    **kwargs: Any,
 ) -> DocumentStructure:
     page_kwargs = dict(kwargs)
     if page_kwargs.get("check_environment", True):
@@ -241,23 +228,27 @@ def _extract_from_open_doc_ocr(
         ensure_tesseract_available(custom_cmd=page_kwargs.get("tesseract_cmd"), required_languages=langs)
         page_kwargs["check_environment"] = False
     blocks: list[TextBlock] = []
-    for i in range(len(doc)):
+    total = len(doc)
+    for i in range(total):
         blocks.extend(extract_page_blocks_ocr(doc[i], page_number=i + 1, **page_kwargs))
-    return DocumentStructure(source_path, len(doc), ExtractionStrategy.OCR_FALLBACK, blocks)
+        if page_callback:
+            page_callback(i + 1, total)
+    return DocumentStructure(source_path, total, ExtractionStrategy.OCR_FALLBACK, blocks)
 
 
 def extract_document_structure_ocr(
     source: pymupdf.Document | str | Path | bytes,
     *,
     password: str = "",
+    page_callback: Callable[[int, int], None] | None = None,
     **kwargs: Any,
 ) -> DocumentStructure:
     if isinstance(source, pymupdf.Document):
-        return _extract_from_open_doc_ocr(source, source.name or "<memory>", **kwargs)
+        return _extract_from_open_doc_ocr(source, source.name or "<memory>", page_callback=page_callback, **kwargs)
 
     resolved_path = str(source) if isinstance(source, (str, Path)) else "<memory>"
     with open_pdf(source, password=password) as doc:
-        return _extract_from_open_doc_ocr(doc, resolved_path, **kwargs)
+        return _extract_from_open_doc_ocr(doc, resolved_path, page_callback=page_callback, **kwargs)
 
 
 class OcrExtractor:
@@ -291,6 +282,11 @@ class OcrExtractor:
         return extract_page_text_ocr(page, **{k: self.options[k] for k in keys if k in self.options})
 
     def extract(
-        self, source: pymupdf.Document | str | Path | bytes, password: str = ""
+        self,
+        source: pymupdf.Document | str | Path | bytes,
+        password: str = "",
+        page_callback: Callable[[int, int], None] | None = None,
     ) -> DocumentStructure:
-        return extract_document_structure_ocr(source, password=password, **self.options)
+        cb = page_callback or self.options.get("page_callback")
+        opts = {k: v for k, v in self.options.items() if k != "page_callback"}
+        return extract_document_structure_ocr(source, password=password, page_callback=cb, **opts)

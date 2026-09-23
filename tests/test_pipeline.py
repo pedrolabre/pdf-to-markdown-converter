@@ -292,3 +292,54 @@ def test_convert_pdf_top_level_function(tmp_path: Path) -> None:
     assert res.html_path == ""
     assert Path(res.markdown_path).name == "via_func.md"
     assert Path(res.markdown_path).exists()
+
+
+def test_pipeline_granular_multipage_progress(tmp_path: Path) -> None:
+    pdf_bytes = _create_sample_pdf(num_pages=4)
+    events: list[tuple[PipelineStage, float, str]] = []
+
+    def callback(stage: PipelineStage, progress: float, message: str) -> None:
+        events.append((stage, round(progress, 4), message))
+
+    pipeline = ConversionPipeline(output_dir=tmp_path, progress_callback=callback)
+    pipeline.convert(pdf_bytes)
+
+    extracting_events = [e for e in events if e[0] == PipelineStage.EXTRACTING]
+    # Espera evento inicial (0.15) + 4 eventos por página: 0.275, 0.40, 0.525, 0.65
+    assert len(extracting_events) == 5
+    progress_values = [e[1] for e in extracting_events]
+    assert progress_values == [0.15, 0.275, 0.4, 0.525, 0.65]
+    messages = [e[2] for e in extracting_events[1:]]
+    assert any("1/4" in m for m in messages)
+    assert any("4/4" in m for m in messages)
+
+
+def test_pipeline_end_to_end_table_conversion(tmp_path: Path) -> None:
+    doc = pymupdf.open()
+    page = doc.new_page(width=600, height=800)
+    page.insert_text((50, 40), "Cabecalho do Teste")
+    page.draw_line([50, 80], [400, 80])
+    page.draw_line([50, 110], [400, 110])
+    page.draw_line([50, 140], [400, 140])
+    page.draw_line([50, 80], [50, 140])
+    page.draw_line([225, 80], [225, 140])
+    page.draw_line([400, 80], [400, 140])
+    page.insert_text((70, 100), "ColunaA")
+    page.insert_text((245, 100), "ColunaB")
+    page.insert_text((70, 130), "Dado1")
+    page.insert_text((245, 130), "Dado2")
+    pdf_path = tmp_path / "table_doc.pdf"
+    doc.save(str(pdf_path))
+    doc.close()
+
+    pipeline = ConversionPipeline(output_dir=tmp_path, export_formats=["md", "html"])
+    res = pipeline.convert(pdf_path)
+
+    md_content = Path(res.markdown_path).read_text(encoding="utf-8")
+    assert "| ColunaA | ColunaB |" in md_content
+    assert "| --- | --- |" in md_content
+    assert "| Dado1 | Dado2 |" in md_content
+
+    html_content = Path(res.html_path).read_text(encoding="utf-8")
+    assert "<table>" in html_content
+    assert "<th>ColunaA</th>" in html_content or "ColunaA" in html_content

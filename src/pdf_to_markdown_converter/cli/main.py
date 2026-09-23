@@ -159,16 +159,11 @@ def _handle_info_command(
     err: TextIO,
 ) -> int:
     info_argv: list[str] = []
-    if getattr(args, "json", False):
-        info_argv.append("--json")
-    if getattr(args, "strict", False):
-        info_argv.append("--strict")
-    if getattr(args, "tesseract_cmd", None):
-        info_argv.extend(["--tesseract-cmd", str(args.tesseract_cmd)])
-    if getattr(args, "color", False):
-        info_argv.append("--color")
-    if getattr(args, "no_color", False):
-        info_argv.append("--no-color")
+    if getattr(args, "json", False): info_argv.append("--json")
+    if getattr(args, "strict", False): info_argv.append("--strict")
+    if getattr(args, "tesseract_cmd", None): info_argv.extend(["--tesseract-cmd", str(args.tesseract_cmd)])
+    if getattr(args, "color", False): info_argv.append("--color")
+    if getattr(args, "no_color", False): info_argv.append("--no-color")
     return run_info_command(info_argv, stdout=out, stderr=err)
 
 
@@ -279,24 +274,20 @@ def run_cli(
         parser.print_help(out)
         return int(CliExitCode.SUCCESS)
 
-    if getattr(args, "no_color", False):
+    if getattr(args, "no_color", False) or os.environ.get("NO_COLOR"):
         use_colors = False
     elif getattr(args, "color", False):
         use_colors = True
-    elif os.environ.get("NO_COLOR"):
-        use_colors = False
-    elif hasattr(out, "isatty") and out.isatty():
-        use_colors = True
     else:
-        use_colors = False
+        use_colors = bool(hasattr(out, "isatty") and out.isatty())
 
-    if args.subcommand == "info":
-        return _handle_info_command(args, out, err)
-    if args.subcommand == "extract":
-        return _handle_extract_command(args, out, err, use_colors)
-    if args.subcommand == "gui":
-        return _handle_gui_command(err)
-    return int(CliExitCode.GENERAL_ERROR)
+    handlers = {
+        "info": lambda: _handle_info_command(args, out, err),
+        "extract": lambda: _handle_extract_command(args, out, err, use_colors),
+        "gui": lambda: _handle_gui_command(err),
+    }
+    handler = handlers.get(args.subcommand)
+    return handler() if handler else int(CliExitCode.GENERAL_ERROR)
 
 
 def main() -> None:

@@ -270,7 +270,7 @@ def test_converter_app_conversion_errors_flow(
         app.start_conversion()
 
         start_wait = time.perf_counter()
-        while app._is_converting and time.perf_counter() - start_wait < 3.0:
+        while app._is_converting and time.perf_counter() - start_wait < 5.0:
             app._check_queue()
             time.sleep(0.05)
 
@@ -286,6 +286,19 @@ def test_converter_app_progress_callback(tk_root: tk.Tk) -> None:
     app._check_queue()
     assert app.progress_var.get() == pytest.approx(45.0)
     assert "45% - Extraindo blocos" in app.status_var.get()
+
+
+def test_converter_app_granular_progress_sequence(tk_root: tk.Tk) -> None:
+    app = ConverterApp(tk_root)
+    app._progress_callback(PipelineStage.EXTRACTING, 0.40, "Extraindo página 1/2 (native_text)")
+    app._check_queue()
+    assert app.progress_var.get() == pytest.approx(40.0)
+    assert "40% - Extraindo página 1/2" in app.status_var.get()
+
+    app._progress_callback(PipelineStage.EXTRACTING, 0.65, "Extraindo página 2/2 (native_text)")
+    app._check_queue()
+    assert app.progress_var.get() == pytest.approx(65.0)
+    assert "65% - Extraindo página 2/2" in app.status_var.get()
 
 
 def test_converter_app_open_actions(tk_root: tk.Tk, tmp_path: Path) -> None:

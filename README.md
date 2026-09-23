@@ -20,12 +20,13 @@ Converter arquivos PDF em documentos Markdown (`.md`) canônicos e páginas HTML
 ## Recursos Principais
 
 - Interface gráfica nativa (GUI) com seleção de arquivo PDF, preenchimento automático de destino, barra de progresso em tempo real e abertura direta dos arquivos gerados.
+- Acompanhamento contínuo e granular de progresso página a página, refletido dinamicamente na interface gráfica (GUI) e no terminal interativo (CLI).
 - Abertura segura e validação de PDFs com tratamento de restrições de permissão e autenticação de senhas.
 - Classificação automática de estratégia de extração (`NATIVE_TEXT` vs. `OCR_FALLBACK`) com opção de sobrescrita manual (`--force-ocr`).
-- Extrator vetorial baseado em blocos espaciais e ordenação de coordenadas (PyMuPDF).
+- Extrator vetorial baseado em blocos espaciais e ordenação de coordenadas (PyMuPDF) com suporte nativo à extração de tabelas (`page.find_tables()`).
 - Extrator óptico em memória RAM com suporte a DPI configurável e Tesseract OCR.
 - Módulo de normalização textual (remoção de hifens de margem, caracteres de controle e unificação de parágrafos).
-- Reconstrutor semântico para Markdown (cabeçalhos hierárquicos, listas padronizadas e blocos de código cercados).
+- Reconstrutor semântico para Markdown (cabeçalhos hierárquicos, listas padronizadas, blocos de código cercados e tabelas sintéticas canônicas).
 - Exportador duplo atômico: Markdown canônico e HTML5 com CSS responsivo embutido e suporte a modo escuro.
 - CLI com subcomandos de extração (`extract`), alias implícito direto, lançamento da interface gráfica (`gui`) e diagnóstico de ambiente local (`info`).
 - Cobertura de testes automatizados com `pytest` em cada módulo e suíte integrada ponta a ponta (E2E).

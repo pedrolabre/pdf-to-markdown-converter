@@ -8,6 +8,7 @@ from pdf_to_markdown_converter.core.markdown_builder import (
     format_heading,
     format_list_item,
     format_paragraph,
+    format_table,
     is_code_fenced,
 )
 from pdf_to_markdown_converter.domain.models import (
@@ -325,3 +326,56 @@ def test_markdown_builder_class_standardize_ordered() -> None:
     builder = MarkdownBuilder(preserve_ordered_lists=False)
     block = TextBlock(page_number=1, block_type=BlockType.LIST_ITEM, normalized_text="1. Item ordenado")
     assert builder.format_block(block) == "- Item ordenado"
+
+
+def test_format_table_canonical() -> None:
+    # Saida do PyMuPDF sem espacos
+    raw_pymupdf = "|Col1|Col2|\n|---|---|\n|Val1|Val2|"
+    expected = "| Col1 | Col2 |\n| --- | --- |\n| Val1 | Val2 |"
+    assert format_table(raw_pymupdf) == expected
+
+    # Entrada sintetica sem linha separadora
+    synthetic = "Nome | Idade\nPedro | 30"
+    expected_syn = "| Nome | Idade |\n| --- | --- |\n| Pedro | 30 |"
+    assert format_table(synthetic) == expected_syn
+
+    # Entrada delimitada por tabulacao
+    tab_delim = "Produto\tPreco\nCaderno\t15.00"
+    expected_tab = "| Produto | Preco |\n| --- | --- |\n| Caderno | 15.00 |"
+    assert format_table(tab_delim) == expected_tab
+
+    # Entradas vazias
+    assert format_table("") == ""
+    assert format_table("   \n \t ") == ""
+
+
+def test_format_block_table_dispatch() -> None:
+    table_block = TextBlock(
+        page_number=1,
+        block_type=BlockType.TABLE,
+        normalized_text="| X | Y |\n|---|---|\n| 1 | 2 |",
+    )
+    assert format_block(table_block) == "| X | Y |\n| --- | --- |\n| 1 | 2 |"
+
+
+def test_build_markdown_with_table() -> None:
+    blocks = [
+        TextBlock(page_number=1, block_type=BlockType.HEADING, heading_level=1, normalized_text="Relatorio"),
+        TextBlock(page_number=1, block_type=BlockType.PARAGRAPH, normalized_text="Introducao ao relatorio."),
+        TextBlock(page_number=1, block_type=BlockType.TABLE, normalized_text="| A | B |\n| 1 | 2 |"),
+        TextBlock(page_number=1, block_type=BlockType.PARAGRAPH, normalized_text="Conclusao."),
+    ]
+    md = build_markdown(blocks)
+    expected = (
+        "# Relatorio\n\n"
+        "Introducao ao relatorio.\n\n"
+        "| A | B |\n| --- | --- |\n| 1 | 2 |\n\n"
+        "Conclusao."
+    )
+    assert md == expected
+
+
+def test_markdown_builder_format_table() -> None:
+    builder = MarkdownBuilder()
+    raw = "A | B\n1 | 2"
+    assert builder.format_table(raw) == "| A | B |\n| --- | --- |\n| 1 | 2 |"

@@ -222,3 +222,64 @@ def test_sort_blocks_spatially_multi_column_pruning() -> None:
     assert [b.raw_text for b in sorted_blocks[1:11]] == [f"C1_{i}" for i in range(10)]
     assert [b.raw_text for b in sorted_blocks[11:21]] == [f"C2_{i}" for i in range(10)]
     assert sorted_blocks[21].raw_text == "Footer"
+
+
+def test_extract_page_blocks_with_table() -> None:
+    doc = pymupdf.open()
+    page = doc.new_page(width=600, height=800)
+    page.insert_text((50, 40), "Titulo do Relatorio")
+    # Linhas de grade da tabela
+    page.draw_line([50, 100], [450, 100])
+    page.draw_line([50, 130], [450, 130])
+    page.draw_line([50, 160], [450, 160])
+    page.draw_line([50, 100], [50, 160])
+    page.draw_line([250, 100], [250, 160])
+    page.draw_line([450, 100], [450, 160])
+    page.insert_text((70, 120), "Item")
+    page.insert_text((270, 120), "Preco")
+    page.insert_text((70, 150), "Notebook")
+    page.insert_text((270, 150), "3500.00")
+    page.insert_text((50, 200), "Observacoes finais.")
+
+    blocks = extract_page_blocks(page)
+    table_blocks = [b for b in blocks if b.block_type == BlockType.TABLE]
+    assert len(table_blocks) == 1
+    assert "Item" in table_blocks[0].raw_text
+    assert "Notebook" in table_blocks[0].raw_text
+
+    # Verifica que as celulas nao geraram paragrafos desconexos duplicados
+    p_texts = [b.raw_text for b in blocks if b.block_type == BlockType.PARAGRAPH]
+    assert len(p_texts) == 2
+    assert any("Titulo do Relatorio" in t for t in p_texts)
+    assert any("Observacoes finais" in t for t in p_texts)
+    assert not any("3500.00" in t for t in p_texts)
+    doc.close()
+
+
+def test_extract_page_blocks_without_table_fallback() -> None:
+    doc = pymupdf.open()
+    page = doc.new_page(width=600, height=800)
+    page.insert_text((50, 50), "Texto simples sem tabela.")
+
+    blocks = extract_page_blocks(page, extract_tables=True)
+    assert len(blocks) == 1
+    assert blocks[0].block_type == BlockType.PARAGRAPH
+    assert "Texto simples sem tabela" in blocks[0].raw_text
+    doc.close()
+
+
+def test_native_extractor_page_callback() -> None:
+    doc = pymupdf.open()
+    for i in range(3):
+        p = doc.new_page()
+        p.insert_text((50, 50), f"Pagina {i + 1}")
+
+    calls: list[tuple[int, int]] = []
+
+    def on_page(current: int, total: int) -> None:
+        calls.append((current, total))
+
+    extractor = NativeExtractor()
+    extractor.extract(doc, page_callback=on_page)
+    assert calls == [(1, 3), (2, 3), (3, 3)]
+    doc.close()
