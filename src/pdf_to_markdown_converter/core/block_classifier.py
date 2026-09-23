@@ -17,9 +17,28 @@ _CODE_KEYWORD_PATTERNS: tuple[str, ...] = (
     r"^(return(\s+[^.!?]+)?(;)?$|return\s+.*;$|console\.log\(|print\()",
     r"^(public\s+(static\s+)?(void|class|int|String|boolean)|#include\s+<)",
     r"^(SELECT\s+.+\s+FROM\s+|INSERT\s+INTO\s+|CREATE\s+TABLE\s+)",
-    r"^[{}\[\]();]+$",
-    r".*[{};]\s*$",
+    r"^[{}\[\]();]+,?$",
+    r".*[{};]\s*,?\s*$",
+    r"^\s*</?[a-zA-Z][\w.:-]*(?:\s+[^>]*)?/?>?\s*$",
+    r"^\s*<[a-zA-Z][\w.:-]*(\s+[^>]*)?>.*</[a-zA-Z][\w.:-]*>\s*$",
+    r"^\s*\{/\*.*?\*/\}\s*$",
+    r"^\s*\{[a-zA-Z0-9_.]+(?:\s*===|\s*!==|\s*&&\s*|\.map\(|\.filter\(|\.reduce\().*",
+    r"\b(className|onClick|onChange|onSubmit|aria-\w+|style|htmlFor|href|target|rel|type|id|name|value|placeholder|key|src|alt)=[\"'{]",
+    r"^\s*(export\s+(default\s+)?(const|function|class|default)?|import\s+.*?\s+from)\b",
+    r"^\s*(<>|</>|/>|>)\s*$",
+    r"^\s*(/\*+|\*/|//.*|\*\s*@\w+|\*\s+[a-zA-Z_]\w*\s*-)",
+    r"^\s*\$\{[^}]*",
+    r"^\s*[?:].*['\"`]",
+    r"^\s*\{.*:\s*.*\}?,?\s*$",
+    r"^\s*[a-zA-Z_]\w*(\s*=\s*[^,]+)?,\s*$",
 )
+
+_FILENAME_HEADING_PATTERN: re.Pattern[str] = re.compile(
+    r"^(?:[0-9]\uFE0F?\u20E3|\d+[\.\)]|[A-Za-z][\.\)]|\W+)?\s*[\w\.\-]+\.(?:jsx?|tsx?|py|html|css|json|md)\s*$",
+    re.IGNORECASE,
+)
+_TAG_OPEN_RE: re.Pattern[str] = re.compile(r"<([a-zA-Z][\w.:-]*)(\s+[^>]*)?>\s*$")
+_TAG_CLOSE_RE: re.Pattern[str] = re.compile(r"^\s*</([a-zA-Z][\w.:-]*)>")
 
 _UNORDERED_LIST_PATTERN: re.Pattern[str] = re.compile(
     r"^([-*+•◦▪▫–—])\s+"
@@ -45,6 +64,9 @@ def is_code_block(text: str) -> bool:
     if not stripped:
         return False
 
+    if _FILENAME_HEADING_PATTERN.match(stripped):
+        return False
+
     if stripped.startswith("```") or stripped.startswith("~~~"):
         return True
 
@@ -52,9 +74,18 @@ def is_code_block(text: str) -> bool:
     if lines and all(line.startswith("    ") or line.startswith("\t") for line in lines):
         return True
 
+    def _is_jsdoc(l: str) -> bool:
+        s = l.strip()
+        return s.startswith(("* @", "/**", "/*", "*/")) or bool(
+            re.match(r"^\*\s+[a-zA-Z_]\w*\s*-", s)
+        )
+
     if all(
-        _UNORDERED_LIST_PATTERN.match(line.strip())
-        or _ORDERED_LIST_PATTERN.match(line.strip())
+        (
+            _UNORDERED_LIST_PATTERN.match(line.strip())
+            or _ORDERED_LIST_PATTERN.match(line.strip())
+        )
+        and not _is_jsdoc(line)
         for line in lines
     ):
         return False
@@ -103,6 +134,10 @@ def detect_heading(
         ):
             if title_body and (title_body[0].isupper() or title_body.isupper()):
                 return True, 1
+
+    emoji_match = re.match(r"^([0-9]\uFE0F?\u20E3)\s+(.+)$", stripped)
+    if emoji_match and len(lines) == 1:
+        return True, 3
 
     if _CHAPTER_KEYWORD_PATTERN.search(stripped) and not stripped.endswith((".", ";")):
         return True, 1
@@ -184,10 +219,48 @@ def classify_block(
 def classify_blocks(
     blocks: Sequence[TextBlock], max_heading_length: int = MAX_HEADING_LENGTH
 ) -> list[TextBlock]:
-    return [
+    classified = [
         classify_block(block, max_heading_length=max_heading_length)
         for block in blocks
     ]
+    if len(classified) < 3:
+        return classified
+
+    for _ in range(2):
+        for i in range(1, len(classified) - 1):
+            curr = classified[i]
+            if curr.block_type in (BlockType.CODE_BLOCK, BlockType.HEADING):
+                continue
+
+            curr_txt = (curr.normalized_text or curr.raw_text).strip()
+            if _FILENAME_HEADING_PATTERN.match(curr_txt):
+                continue
+
+            prev_b = classified[i - 1]
+            next_b = classified[i + 1]
+            if (
+                prev_b.block_type != BlockType.CODE_BLOCK
+                or next_b.block_type != BlockType.CODE_BLOCK
+            ):
+                continue
+
+            prev_txt = (prev_b.normalized_text or prev_b.raw_text).strip()
+            next_txt = (next_b.normalized_text or next_b.raw_text).strip()
+
+            if prev_txt.startswith("export default"):
+                continue
+
+            m_open = bool(_TAG_OPEN_RE.search(prev_txt) or prev_txt.endswith(">"))
+            m_close = bool(_TAG_CLOSE_RE.search(next_txt) or next_txt.startswith("</"))
+
+            if (m_open and m_close) or m_open or m_close:
+                classified[i] = replace(curr, block_type=BlockType.CODE_BLOCK, heading_level=0)
+            elif (prev_txt.endswith("`") or "${" in prev_txt) and (next_txt.startswith("`") or "}" in next_txt):
+                classified[i] = replace(curr, block_type=BlockType.CODE_BLOCK, heading_level=0)
+            elif len(curr_txt.splitlines()) <= 3 and not curr_txt.endswith((".", "?", "!")):
+                classified[i] = replace(curr, block_type=BlockType.CODE_BLOCK, heading_level=0)
+
+    return classified
 
 
 def classify_document_structure(

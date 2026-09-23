@@ -29,6 +29,9 @@ _ALPHA_ORDERED_PATTERN: re.Pattern[str] = re.compile(
 )
 
 _HEADING_HASH_PATTERN: re.Pattern[str] = re.compile(r"^#{1,6}\s*")
+_HTML_TAG_ESCAPE_RE: re.Pattern[str] = re.compile(
+    r"<(?=/?(?:[a-zA-Z][\w.:-]*)(?:\s|>|/|$))"
+)
 
 
 def format_heading(text: str, heading_level: int = 1) -> str:
@@ -146,7 +149,8 @@ def format_paragraph(text: str) -> str:
     stripped = text.strip()
     if not stripped:
         return ""
-    lines = [line.strip() for line in stripped.splitlines() if line.strip()]
+    escaped = _HTML_TAG_ESCAPE_RE.sub("&lt;", stripped)
+    lines = [line.strip() for line in escaped.splitlines() if line.strip()]
     return "\n".join(lines)
 
 
@@ -184,15 +188,37 @@ def build_markdown(
         return ""
 
     rendered: list[str] = []
-    for block in blocks:
-        formatted = format_block(
-            block,
-            preserve_ordered_lists=preserve_ordered_lists,
-            default_code_language=default_code_language,
-        )
-        if formatted:
-            rendered.append(formatted)
+    code_lines: list[str] = []
 
+    def flush_code() -> None:
+        if code_lines:
+            combined = "\n".join(code_lines)
+            code_lines.clear()
+            formatted = format_code_block(
+                combined, default_language=default_code_language
+            )
+            if formatted:
+                rendered.append(formatted)
+
+    for block in blocks:
+        if block.block_type == BlockType.CODE_BLOCK:
+            text = block.normalized_text if block.normalized_text else block.raw_text
+            if is_code_fenced(text):
+                flush_code()
+                rendered.append(text.strip())
+            elif text.strip():
+                code_lines.append(text.strip())
+        else:
+            flush_code()
+            formatted = format_block(
+                block,
+                preserve_ordered_lists=preserve_ordered_lists,
+                default_code_language=default_code_language,
+            )
+            if formatted:
+                rendered.append(formatted)
+
+    flush_code()
     return separator.join(rendered)
 
 

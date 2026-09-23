@@ -354,3 +354,43 @@ def test_document_structure_to_markdown_with_classified_blocks() -> None:
     assert "## 1.1 Arquitetura" in md
     assert "- Camada de domínio\n- Camada core" in md
     assert "```\ndef test():\n    return True\n```" in md
+
+
+def test_classify_jsx_tags_and_attributes() -> None:
+    jsx_samples = [
+        '<div className="flex items-center gap-3">',
+        '<button onClick={onClose} aria-label="Fechar">',
+        '<X className="w-6 h-6" />',
+        '<span>{tab.icon}</span>',
+        'href="https://github.com/org/repo"',
+        'target="_blank"',
+        'export default SettingsModal;',
+        '{ id: "general", label: "Geral", icon: "⚙️" },',
+    ]
+    for sample in jsx_samples:
+        assert is_code_block(sample) is True
+        b_type, _ = classify_text(sample)
+        assert b_type == BlockType.CODE_BLOCK
+
+
+def test_classify_contextual_jsx_inner_content() -> None:
+    blocks = [
+        TextBlock(page_number=1, normalized_text='<h2 className="text-2xl font-bold">'),
+        TextBlock(page_number=1, normalized_text="Configurações"),
+        TextBlock(page_number=1, normalized_text="</h2>"),
+        TextBlock(page_number=1, normalized_text='<p className="text-sm">'),
+        TextBlock(page_number=1, normalized_text="YouTube Organizer v1.0.0 - Organize seus vídeos favoritos."),
+        TextBlock(page_number=1, normalized_text="</p>"),
+    ]
+    classified = classify_blocks(blocks)
+    for b in classified:
+        assert b.block_type == BlockType.CODE_BLOCK
+
+
+def test_classify_emoji_numbered_heading() -> None:
+    assert detect_heading("1️⃣ SettingsModal.jsx")[0] is True
+    assert detect_heading("2️⃣ ThemeToggle.jsx")[0] is True
+    b_type, lvl = classify_text("2️⃣ ThemeToggle.jsx")
+    assert b_type == BlockType.HEADING
+    assert lvl == 3
+
