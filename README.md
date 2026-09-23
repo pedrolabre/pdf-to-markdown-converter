@@ -4,7 +4,7 @@ O **PDF to Markdown Converter** é uma ferramenta local-first desenvolvida em Py
 
 A ferramenta implementa uma esteira híbrida com análise de qualidade: extrai texto vetorial diretamente quando a camada textual é íntegra e aplica fallback transparente para OCR em memória quando o documento é escaneado, protegido ou possui codificações corrompidas.
 
-A ferramenta fornece uma esteira de processamento completa que opera de forma desacoplada via interface de linha de comando (`pdf-to-markdown`) ou importação programática em Python.
+A ferramenta fornece uma esteira de processamento completa que opera de forma desacoplada via interface gráfica intuitiva (`pdf-to-markdown-gui` ou `pdf-to-markdown gui`), interface de linha de comando (`pdf-to-markdown`) ou importação programática em Python.
 
 ## Objetivo
 
@@ -15,10 +15,11 @@ Converter arquivos PDF em documentos Markdown (`.md`) canônicos e páginas HTML
 - **Local-First**: Execução 100% local, garantindo privacidade e segurança total dos documentos processados.
 - **Zero I/O Temporário no OCR**: Processamento de imagens estritamente em memória RAM através de streams e buffers de bytes, sem criação de arquivos temporários em disco.
 - **Normalização Determinística**: Limpeza reproduzível de caracteres de controle, desfazimento de quebras de linha e reconstituição de hifenizações espúrias de margem.
-- **Desacoplamento Arquitetural**: Separação estrita entre o núcleo de extração/normalização e a interface de apresentação (CLI).
+- **Desacoplamento Arquitetural**: Separação estrita entre o núcleo de extração/normalização, a interface gráfica (GUI) e a interface de linha de comando (CLI).
 
 ## Recursos Principais
 
+- Interface gráfica nativa (GUI) com seleção de arquivo PDF, preenchimento automático de destino, barra de progresso em tempo real e abertura direta dos arquivos gerados.
 - Abertura segura e validação de PDFs com tratamento de restrições de permissão e autenticação de senhas.
 - Classificação automática de estratégia de extração (`NATIVE_TEXT` vs. `OCR_FALLBACK`) com opção de sobrescrita manual (`--force-ocr`).
 - Extrator vetorial baseado em blocos espaciais e ordenação de coordenadas (PyMuPDF).
@@ -26,7 +27,7 @@ Converter arquivos PDF em documentos Markdown (`.md`) canônicos e páginas HTML
 - Módulo de normalização textual (remoção de hifens de margem, caracteres de controle e unificação de parágrafos).
 - Reconstrutor semântico para Markdown (cabeçalhos hierárquicos, listas padronizadas e blocos de código cercados).
 - Exportador duplo atômico: Markdown canônico e HTML5 com CSS responsivo embutido e suporte a modo escuro.
-- CLI com subcomandos de extração (`extract`), alias implícito direto e diagnóstico de ambiente local (`info`).
+- CLI com subcomandos de extração (`extract`), alias implícito direto, lançamento da interface gráfica (`gui`) e diagnóstico de ambiente local (`info`).
 - Cobertura de testes automatizados com `pytest` em cada módulo e suíte integrada ponta a ponta (E2E).
 
 ## Stack Tecnológica
@@ -74,6 +75,33 @@ Para verificar se o Tesseract foi detectado corretamente pelo ambiente:
 ```bash
 pdf-to-markdown info
 ```
+
+## Uso da Interface Gráfica (GUI)
+
+Para quem prefere uma experiência visual intuitiva, a ferramenta inclui uma interface gráfica nativa em Tkinter/TTK (leve e sem dependências adicionais).
+
+### Inicialização da GUI
+
+Você pode iniciar a interface gráfica por qualquer uma das opções abaixo:
+
+```bash
+# 1. Pelo executável de console dedicado:
+pdf-to-markdown-gui
+
+# 2. Pelo subcomando da CLI:
+pdf-to-markdown gui
+
+# 3. Como módulo Python direto:
+python -m pdf_to_markdown_converter.gui
+```
+
+### Funcionalidades da Interface
+
+- **Seleção de Arquivo e Destino**: Botão "Procurar..." para selecionar o arquivo PDF via explorador nativo. Ao selecionar o arquivo, a pasta de destino é automaticamente definida para a mesma pasta do PDF de origem.
+- **Opções de Exportação**: Checkboxes para escolher gerar Markdown (`.md`), HTML5 (`.html`) ou ambos, além de controle de sobrescrita.
+- **Configurações de OCR e Senha**: Opção para forçar OCR (em casos de documentos escaneados), idiomas do motor e campo de senha para PDFs protegidos.
+- **Progresso em Tempo Real**: Barra de progresso e rótulos de status assíncronos atualizados a cada etapa da conversão sem travar a janela.
+- **Ações Imediatas pós-conversão**: Botões para abrir a pasta de destino e visualizar diretamente os arquivos Markdown e HTML gerados.
 
 ## Uso da CLI
 
@@ -181,11 +209,15 @@ pdf-to-markdown-converter/
 │       ├── domain/
 │       │   ├── __init__.py
 │       │   └── models.py
-│       └── exporters/
+│       ├── exporters/
+│       │   ├── __init__.py
+│       │   ├── html_exporter.py
+│       │   ├── markdown_exporter.py
+│       │   └── styles.py
+│       └── gui/
 │           ├── __init__.py
-│           ├── html_exporter.py
-│           ├── markdown_exporter.py
-│           └── styles.py
+│           ├── __main__.py
+│           └── app.py
 └── tests/
     ├── __init__.py
     ├── conftest.py
@@ -194,6 +226,7 @@ pdf-to-markdown-converter/
     ├── test_cli_main.py
     ├── test_detector.py
     ├── test_e2e.py
+    ├── test_gui.py
     ├── test_html_exporter.py
     ├── test_line_normalizer.py
     ├── test_markdown_builder.py

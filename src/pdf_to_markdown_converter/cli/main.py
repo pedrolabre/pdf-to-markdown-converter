@@ -148,6 +148,8 @@ def build_main_parser() -> argparse.ArgumentParser:
     info_p.add_argument("--strict", action="store_true", help="Retorna código 1 se dependências faltarem.")
     info_p.add_argument("--tesseract-cmd", type=str, default=None, help="Caminho do executável Tesseract.")
 
+    subparsers.add_parser("gui", parents=[common], help="Inicia a interface gráfica interativa.")
+
     return parser
 
 
@@ -235,6 +237,16 @@ def _handle_extract_command(
         return int(CliExitCode.GENERAL_ERROR)
 
 
+def _handle_gui_command(err: TextIO) -> int:
+    try:
+        from pdf_to_markdown_converter.gui import launch_gui
+
+        return launch_gui()
+    except Exception as exc:
+        err.write(f"Erro ao inicializar interface gráfica: {exc}\n")
+        return int(CliExitCode.GENERAL_ERROR)
+
+
 def run_cli(
     argv: Sequence[str] | None = None,
     stdout: TextIO | None = None,
@@ -250,7 +262,7 @@ def run_cli(
         return int(CliExitCode.SUCCESS)
 
     first = raw_argv[0]
-    if first not in ("extract", "info", "-h", "--help", "-v", "--version") and not first.startswith("-"):
+    if first not in ("extract", "info", "gui", "-h", "--help", "-v", "--version") and not first.startswith("-"):
         processed_argv = ["extract"] + raw_argv
     else:
         processed_argv = raw_argv
@@ -282,6 +294,8 @@ def run_cli(
         return _handle_info_command(args, out, err)
     if args.subcommand == "extract":
         return _handle_extract_command(args, out, err, use_colors)
+    if args.subcommand == "gui":
+        return _handle_gui_command(err)
     return int(CliExitCode.GENERAL_ERROR)
 
 

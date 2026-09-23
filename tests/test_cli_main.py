@@ -237,6 +237,20 @@ def test_cli_unexpected_exception(sample_pdf: Path, tmp_path: Path) -> None:
             _exec(["extract", str(sample_pdf), "--debug"])
 
 
+def test_cli_subcommand_gui() -> None:
+    with patch("pdf_to_markdown_converter.gui.launch_gui", return_value=0) as mock_launch:
+        code, _, _ = _exec(["gui"])
+        assert code == CliExitCode.SUCCESS
+        assert mock_launch.called
+
+
+def test_cli_subcommand_gui_failure() -> None:
+    with patch("pdf_to_markdown_converter.gui.launch_gui", side_effect=RuntimeError("GUI crash")):
+        code, _, err = _exec(["gui"])
+        assert code == CliExitCode.GENERAL_ERROR
+        assert "Erro ao inicializar interface gráfica" in err
+
+
 def test_main_entrypoint(monkeypatch: pytest.MonkeyPatch, sample_pdf: Path, tmp_path: Path) -> None:
     monkeypatch.setattr("sys.argv", ["pdf-to-markdown", str(sample_pdf), "-o", str(tmp_path / "main_entry")])
     exit_codes: list[int] = []

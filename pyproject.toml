@@ -26,6 +26,7 @@ dev = [
 
 [project.scripts]
 pdf-to-markdown = "pdf_to_markdown_converter.cli.main:main"
+pdf-to-markdown-gui = "pdf_to_markdown_converter.gui.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
