@@ -81,6 +81,10 @@ pdf-to-markdown info
 
 Para quem prefere uma experiência visual intuitiva, a ferramenta inclui uma interface gráfica nativa em Tkinter/TTK (leve e sem dependências adicionais).
 
+<p align="center">
+  <img src=".github/assets/gui-layout.svg" alt="Interface Gráfica do PDF to Markdown Converter" width="700" />
+</p>
+
 ### Inicialização da GUI
 
 Você pode iniciar a interface gráfica por qualquer uma das opções abaixo:

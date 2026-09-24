@@ -1,0 +1,403 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 715" width="760" height="715" fill="none">
+  <defs>
+    <!-- Sombra suave no estilo Windows 11 -->
+    <filter id="win-shadow" x="-8%" y="-8%" width="120%" height="120%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.22" />
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000000" flood-opacity="0.10" />
+    </filter>
+
+    <!-- Gradiente dos botões Tkinter Vista/Win32 normais -->
+    <linearGradient id="btn-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fcfcfc" />
+      <stop offset="40%" stop-color="#f5f5f5" />
+      <stop offset="100%" stop-color="#e8e8e8" />
+    </linearGradient>
+
+    <!-- Gradiente do botão de Ação Principal (Converter Documento) em repouso -->
+    <linearGradient id="btn-convert-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="60%" stop-color="#f8f8f8" />
+      <stop offset="100%" stop-color="#ececec" />
+    </linearGradient>
+
+    <!-- Barra de Título Windows 11 com tom sutil do sistema -->
+    <linearGradient id="titlebar-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f6f6f6" />
+      <stop offset="100%" stop-color="#eeeeee" />
+    </linearGradient>
+
+    <!-- Máscara de recorte da janela com cantos arredondados -->
+    <clipPath id="window-clip">
+      <rect x="30" y="24" width="700" height="664" rx="8" ry="8" />
+    </clipPath>
+
+    <!-- Recorte de digitação do PDF -->
+    <clipPath id="pdf-clip">
+      <rect x="160" y="24" width="405" height="25">
+        <animate attributeName="width" dur="14s" repeatCount="indefinite"
+          keyTimes="0; 0.10; 0.16; 0.94; 0.97; 1"
+          values="0; 0; 405; 405; 0; 0" />
+      </rect>
+    </clipPath>
+
+    <!-- Recorte de preenchimento da Pasta de Destino -->
+    <clipPath id="dest-clip">
+      <rect x="160" y="55" width="405" height="25">
+        <animate attributeName="width" dur="14s" repeatCount="indefinite"
+          keyTimes="0; 0.15; 0.20; 0.94; 0.97; 1"
+          values="0; 0; 405; 405; 0; 0" />
+      </rect>
+    </clipPath>
+
+    <!-- Recorte do preenchimento da barra de progresso -->
+    <clipPath id="prog-trough-clip">
+      <rect x="17" y="68" width="634" height="14" rx="0" />
+    </clipPath>
+  </defs>
+
+  <style>
+    /* Tipografia oficial Segoe UI nativa do Windows */
+    .win-text {
+      font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .titlebar-title { font-size: 12px; font-weight: 400; fill: #000000; }
+    .app-title { font-size: 18px; font-weight: 700; fill: #000000; }
+    .app-subtitle { font-size: 11.5px; font-weight: 400; fill: #555555; }
+    .group-label { font-size: 12px; font-weight: 700; fill: #000000; }
+    .field-label { font-size: 12px; font-weight: 400; fill: #000000; }
+    .btn-text { font-size: 12px; font-weight: 400; fill: #000000; text-anchor: middle; dominant-baseline: central; }
+    .btn-action-text { font-size: 13.5px; font-weight: 700; fill: #000000; text-anchor: middle; dominant-baseline: central; }
+    .status-text { font-size: 12px; font-weight: 400; fill: #000000; }
+    .result-info { font-size: 12px; font-weight: 400; fill: #000000; }
+    .entry-text { font-size: 12px; font-weight: 400; fill: #000000; }
+    .entry-text-disabled { font-size: 12px; font-weight: 400; fill: #6d6d6d; }
+
+    /* ================= ANIMAÇÕES DE ESTADO ================= */
+
+    /* Animação do botão "Procurar..." do PDF (simula clique) */
+    @keyframes browseClick {
+      0%, 10% { filter: none; }
+      11.5% { filter: brightness(0.92); }
+      13%, 100% { filter: none; }
+    }
+    .btn-browse-anim { animation: browseClick 14s infinite; }
+
+    /* Entrada de texto: PDF de Origem */
+    @keyframes textFadePdf {
+      0%, 10% { opacity: 0; }
+      12%, 94% { opacity: 1; }
+      96%, 100% { opacity: 0; }
+    }
+    .fade-pdf { animation: textFadePdf 14s infinite; }
+
+    /* Entrada de texto: Pasta de Destino */
+    @keyframes textFadeDest {
+      0%, 15% { opacity: 0; }
+      17%, 94% { opacity: 1; }
+      96%, 100% { opacity: 0; }
+    }
+    .fade-dest { animation: textFadeDest 14s infinite; }
+
+    /* Fundo das caixas de texto durante conversão (desabilitadas com fundo cinza no Tkinter) */
+    @keyframes entryBgAnim {
+      0%, 24% { fill: #ffffff; }
+      25%, 63% { fill: #f0f0f0; } /* Desabilitado durante o processo */
+      64%, 100% { fill: #ffffff; }
+    }
+    .entry-bg { animation: entryBgAnim 14s infinite; }
+
+    /* Cor do texto nos campos durante conversão */
+    @keyframes entryTextAnim {
+      0%, 24% { fill: #000000; }
+      25%, 63% { fill: #6d6d6d; }
+      64%, 100% { fill: #000000; }
+    }
+    .entry-val-text { animation: entryTextAnim 14s infinite; }
+
+    /* Botão "Converter Documento": Clique, Borda pontilhada de foco e Estado desabilitado */
+    @keyframes btnConvertAnim {
+      0%, 22% { transform: translateY(0); filter: none; }
+      23.5% { transform: translateY(1px); filter: brightness(0.94); }
+      25%, 63% { transform: translateY(0); filter: brightness(0.98); }
+      64%, 100% { transform: translateY(0); filter: none; }
+    }
+    .btn-convert-anim { animation: btnConvertAnim 14s infinite; }
+
+    /* Retângulo interno pontilhado de foco no botão Converter (fiel ao Windows) */
+    @keyframes focusRectAnim {
+      0%, 23% { opacity: 0; }
+      23.5%, 63% { opacity: 1; }
+      64%, 100% { opacity: 0; }
+    }
+    .btn-focus-rect { animation: focusRectAnim 14s infinite; }
+
+    /* Barra de Progresso Verde Windows (#06b025) */
+    @keyframes progressGreenAnim {
+      0%, 24% { width: 0px; opacity: 0; }
+      25% { width: 20px; opacity: 1; }
+      32% { width: 120px; opacity: 1; }
+      40% { width: 230px; opacity: 1; }
+      48% { width: 350px; opacity: 1; } /* 55% exatamente como no print */
+      56% { width: 490px; opacity: 1; }
+      62% { width: 600px; opacity: 1; }
+      64%, 93% { width: 634px; opacity: 1; }
+      96%, 100% { width: 0px; opacity: 0; }
+    }
+    .prog-green-fill { animation: progressGreenAnim 14s linear infinite; }
+
+    /* Mensagens de status fiéis aos textos reais do pipeline */
+    @keyframes st0 { 0%, 12% { opacity: 1; } 13%, 96% { opacity: 0; } 97%, 100% { opacity: 1; } }
+    @keyframes st1 { 0%, 12% { opacity: 0; } 13%, 24% { opacity: 1; } 25%, 100% { opacity: 0; } }
+    @keyframes st2 { 0%, 24% { opacity: 0; } 25%, 31% { opacity: 1; } 32%, 100% { opacity: 0; } }
+    @keyframes st3 { 0%, 31% { opacity: 0; } 32%, 39% { opacity: 1; } 40%, 100% { opacity: 0; } }
+    @keyframes st4 { 0%, 39% { opacity: 0; } 40%, 55% { opacity: 1; } 56%, 100% { opacity: 0; } } /* 55% - Extraindo pagina 4/5 (native_text) */
+    @keyframes st5 { 0%, 55% { opacity: 0; } 56%, 63% { opacity: 1; } 64%, 100% { opacity: 0; } }
+    @keyframes stSucc { 0%, 63% { opacity: 0; } 64%, 94% { opacity: 1; } 95%, 100% { opacity: 0; } }
+
+    .st-0 { animation: st0 14s infinite; }
+    .st-1 { animation: st1 14s infinite; }
+    .st-2 { animation: st2 14s infinite; }
+    .st-3 { animation: st3 14s infinite; }
+    .st-4 { animation: st4 14s infinite; }
+    .st-5 { animation: st5 14s infinite; }
+    .st-succ { animation: stSucc 14s infinite; }
+
+    /* Seção Resultados: Inicial vs "Processando documento..." vs Concluído */
+    @keyframes resInit { 0%, 24% { opacity: 1; } 25%, 96% { opacity: 0; } 97%, 100% { opacity: 1; } }
+    @keyframes resProc { 0%, 24% { opacity: 0; } 25%, 63% { opacity: 1; } 64%, 100% { opacity: 0; } }
+    @keyframes resDone { 0%, 63% { opacity: 0; } 64%, 94% { opacity: 1; } 95%, 100% { opacity: 0; } }
+
+    .res-init { animation: resInit 14s infinite; }
+    .res-proc { animation: resProc 14s infinite; }
+    .res-done { animation: resDone 14s infinite; }
+
+    /* Botões pós-processamento: Desabilitados vs Habilitados */
+    @keyframes btnDisabled {
+      0%, 63% { opacity: 1; }
+      64%, 94% { opacity: 0; }
+      95%, 100% { opacity: 1; }
+    }
+    @keyframes btnActive {
+      0%, 63% { opacity: 0; pointer-events: none; }
+      64%, 94% { opacity: 1; }
+      95%, 100% { opacity: 0; pointer-events: none; }
+    }
+    .btns-dis { animation: btnDisabled 14s infinite; }
+    .btns-act { animation: btnActive 14s infinite; }
+  </style>
+
+  <!-- Janela Principal com Cor Fiel Tkinter (#f0f0f0) e Sombra Windows 11 -->
+  <rect x="30" y="24" width="700" height="664" rx="8" ry="8" fill="#f0f0f0" stroke="#b0b5bd" stroke-width="1" filter="url(#win-shadow)" />
+
+  <!-- Conteúdo interno recortado pelos cantos arredondados da janela -->
+  <g clip-path="url(#window-clip)" class="win-text">
+
+    <!-- ==================== BARRA DE TÍTULO (WINDOWS 11) ==================== -->
+    <rect x="30" y="24" width="700" height="32" fill="url(#titlebar-grad)" />
+    <line x1="30" y1="56" x2="730" y2="56" stroke="#e0e0e0" stroke-width="1" />
+
+    <!-- Ícone clássico Tkinter (folha/pena estilizada ciano e azul escuro) -->
+    <g transform="translate(42, 32)">
+      <path d="M 2 13 C 2 9 6 3 13 1 C 12 5 9 10 5 12 Z" fill="#007acc" opacity="0.95" />
+      <path d="M 5 12 C 7 9 11 6 15 5 C 13 8 10 12 6 14 Z" fill="#00b4d8" opacity="0.9" />
+      <circle cx="4" cy="13" r="1.5" fill="#1b4965" />
+    </g>
+
+    <!-- Título da Janela -->
+    <text x="64" y="44" class="titlebar-title">PDF to Markdown &amp; HTML Converter</text>
+
+    <!-- Botões Minimizar, Maximizar, Fechar -->
+    <g transform="translate(592, 24)">
+      <!-- Minimizar -->
+      <line x1="18" y1="16" x2="28" y2="16" stroke="#000000" stroke-width="1" />
+      <!-- Maximizar -->
+      <rect x="64" y="11" width="10" height="10" stroke="#000000" stroke-width="1" fill="none" />
+      <!-- Fechar -->
+      <path d="M 110 11 L 120 21 M 120 11 L 110 21" stroke="#000000" stroke-width="1" />
+    </g>
+
+    <!-- ==================== CABEÇALHO DO APLICATIVO ==================== -->
+    <g transform="translate(46, 68)">
+      <text x="0" y="20" class="app-title">PDF to Markdown Converter</text>
+      <text x="0" y="38" class="app-subtitle">Converta documentos PDF em Markdown estruturado e HTML5 de forma 100% local e segura.</text>
+    </g>
+
+    <!-- ==================== SEÇÃO 1: ARQUIVOS E DESTINO ==================== -->
+    <g transform="translate(46, 122)">
+      <!-- Borda sutil de 1px exatamente como no Tkinter Vista -->
+      <rect x="0" y="6" width="668" height="108" rx="3" ry="3" fill="none" stroke="#d5d5d5" stroke-width="1" />
+      <!-- Máscara do Rótulo do Grupo -->
+      <rect x="12" y="0" width="130" height="14" fill="#f0f0f0" />
+      <text x="16" y="11" class="group-label">Arquivos e Destino</text>
+
+      <!-- Linha 0: Arquivo PDF de Origem -->
+      <text x="16" y="38" class="field-label">Arquivo PDF de Origem:</text>
+      <!-- Campo de Entrada: animado com fundo branco -> cinza no processo -->
+      <rect x="160" y="24" width="405" height="24" rx="1" stroke="#7a7a7a" stroke-width="1" class="entry-bg" />
+      
+      <!-- Caminho Neutro: C:/Users/usuario/Documentos/exemplo.pdf -->
+      <g clip-path="url(#pdf-clip)" class="fade-pdf">
+        <text x="166" y="40" class="entry-text entry-val-text">C:/Users/usuario/Documentos/exemplo.pdf</text>
+      </g>
+
+      <!-- Botão Procurar... -->
+      <g class="btn-browse-anim">
+        <rect x="573" y="24" width="80" height="24" rx="2" fill="url(#btn-grad)" stroke="#adadad" stroke-width="1" />
+        <text x="613" y="36" class="btn-text">Procurar...</text>
+      </g>
+
+      <!-- Linha 1: Pasta de Destino -->
+      <text x="16" y="68" class="field-label">Pasta de Destino:</text>
+      <rect x="160" y="54" width="405" height="24" rx="1" stroke="#7a7a7a" stroke-width="1" class="entry-bg" />
+      
+      <!-- Caminho Neutro da Pasta: C:/Users/usuario/Documentos -->
+      <g clip-path="url(#dest-clip)" class="fade-dest">
+        <text x="166" y="70" class="entry-text entry-val-text">C:/Users/usuario/Documentos</text>
+      </g>
+
+      <rect x="573" y="54" width="80" height="24" rx="2" fill="url(#btn-grad)" stroke="#adadad" stroke-width="1" />
+      <text x="613" y="66" class="btn-text">Procurar...</text>
+
+      <!-- Linha 2: Checkbox mesma pasta (Marcado por padrão) -->
+      <rect x="160" y="87" width="13" height="13" rx="2" fill="#0067c0" stroke="#0067c0" stroke-width="1" />
+      <path d="M 163 93.5 L 165.5 96 L 170.5 89.5" stroke="#ffffff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="179" y="98" class="field-label">Usar mesma pasta do PDF de origem</text>
+    </g>
+
+    <!-- ==================== SEÇÃO 2: OPÇÕES DE CONVERSÃO ==================== -->
+    <g transform="translate(46, 246)">
+      <rect x="0" y="6" width="668" height="114" rx="3" ry="3" fill="none" stroke="#d5d5d5" stroke-width="1" />
+      <rect x="12" y="0" width="144" height="14" fill="#f0f0f0" />
+      <text x="16" y="11" class="group-label">Opções de Conversão</text>
+
+      <!-- Linha 0: Formatos de Saída -->
+      <text x="16" y="35" class="field-label">Formatos de Saída:</text>
+
+      <!-- Checkbox Markdown (.md) -->
+      <rect x="135" y="24" width="13" height="13" rx="2" fill="#0067c0" stroke="#0067c0" stroke-width="1" />
+      <path d="M 138 30.5 L 140.5 33 L 145.5 26.5" stroke="#ffffff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="154" y="35" class="field-label">Markdown (.md)</text>
+
+      <!-- Checkbox HTML5 (.html) -->
+      <rect x="255" y="24" width="13" height="13" rx="2" fill="#0067c0" stroke="#0067c0" stroke-width="1" />
+      <path d="M 258 30.5 L 260.5 33 L 265.5 26.5" stroke="#ffffff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="274" y="35" class="field-label">HTML5 (.html)</text>
+
+      <!-- Checkbox Sobrescrever arquivos existentes -->
+      <rect x="473" y="24" width="13" height="13" rx="2" fill="#0067c0" stroke="#0067c0" stroke-width="1" />
+      <path d="M 476 30.5 L 478.5 33 L 483.5 26.5" stroke="#ffffff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="492" y="35" class="field-label">Sobrescrever arquivos existentes</text>
+
+      <!-- Divisor horizontal sutil -->
+      <line x1="16" y1="48" x2="652" y2="48" stroke="#e0e0e0" stroke-width="1" />
+
+      <!-- Linha 1: Forçar OCR e Idiomas -->
+      <!-- Checkbox Forçar OCR desmarcado -->
+      <rect x="16" y="60" width="13" height="13" rx="2" fill="#ffffff" stroke="#707070" stroke-width="1" />
+      <text x="35" y="71" class="field-label">Forçar OCR (PDFs digitalizados / imagens)</text>
+
+      <text x="480" y="71" class="field-label">Idiomas OCR:</text>
+      <!-- Entry Idiomas -->
+      <rect x="565" y="58" width="88" height="23" rx="1" fill="#ffffff" stroke="#7a7a7a" stroke-width="1" />
+      <text x="571" y="73" class="field-label">por+eng</text>
+
+      <!-- Linha 2: Senha (se protegido) -->
+      <text x="16" y="103" class="field-label">Senha (se protegido):</text>
+      <rect x="145" y="90" width="508" height="23" rx="1" fill="#ffffff" stroke="#7a7a7a" stroke-width="1" />
+    </g>
+
+    <!-- ==================== SEÇÃO 3: EXECUÇÃO E PROGRESSO ==================== -->
+    <g transform="translate(46, 374)">
+      <rect x="0" y="6" width="668" height="114" rx="3" ry="3" fill="none" stroke="#d5d5d5" stroke-width="1" />
+      <rect x="12" y="0" width="150" height="14" fill="#f0f0f0" />
+      <text x="16" y="11" class="group-label">Execução e Progresso</text>
+
+      <!-- Botão "Converter Documento" Fiel com foco pontilhado Windows -->
+      <g class="btn-convert-anim">
+        <!-- Borda externa do botão -->
+        <rect x="16" y="24" width="636" height="30" rx="2" fill="url(#btn-convert-grad)" stroke="#adadad" stroke-width="1" />
+        
+        <!-- Retângulo interno pontilhado de foco (visível durante a conversão/clique exatamente como no print) -->
+        <rect x="18" y="26" width="632" height="26" fill="none" stroke="#666666" stroke-width="1" stroke-dasharray="2,2" class="btn-focus-rect" />
+
+        <text x="334" y="39" class="btn-action-text">Converter Documento</text>
+      </g>
+
+      <!-- Barra de Progresso Trough (fundo #e6e6e6 com borda #cfcfcf) -->
+      <rect x="16" y="67" width="636" height="16" rx="1" fill="#e6e6e6" stroke="#cfcfcf" stroke-width="1" />
+
+      <!-- Preenchimento VERDE autêntico do Windows (#06b025) com animação suave e fallback SMIL -->
+      <g clip-path="url(#prog-trough-clip)">
+        <rect x="17" y="68" height="14" fill="#06b025" class="prog-green-fill" width="0">
+          <animate attributeName="width" dur="14s" repeatCount="indefinite"
+            keyTimes="0; 0.24; 0.25; 0.32; 0.40; 0.48; 0.56; 0.62; 0.64; 0.93; 0.96; 1"
+            values="0; 0; 20; 120; 230; 350; 490; 600; 634; 634; 0; 0" />
+          <animate attributeName="opacity" dur="14s" repeatCount="indefinite"
+            keyTimes="0; 0.24; 0.25; 0.93; 0.96; 1"
+            values="0; 0; 1; 1; 0; 0" />
+        </rect>
+      </g>
+
+      <!-- Rótulos de Status sincronizados com o pipeline real -->
+      <g transform="translate(16, 101)">
+        <text x="0" y="0" class="status-text st-0">Selecione um arquivo PDF para iniciar.</text>
+        <text x="0" y="0" class="status-text st-1">Arquivo selecionado: exemplo.pdf</text>
+        <text x="0" y="0" class="status-text st-2">Iniciando conversao...</text>
+        <text x="0" y="0" class="status-text st-3">20% - Analisando documento (native_text)</text>
+        <!-- Texto idêntico ao do print do usuário: -->
+        <text x="0" y="0" class="status-text st-4">55% - Extraindo pagina 4/5 (native_text)</text>
+        <text x="0" y="0" class="status-text st-5">90% - Normalizando texto e estruturando Markdown...</text>
+        <text x="0" y="0" class="status-text st-succ" font-weight="600">Concluido com sucesso em 0.85s!</text>
+      </g>
+    </g>
+
+    <!-- ==================== SEÇÃO 4: RESULTADOS ==================== -->
+    <g transform="translate(46, 502)">
+      <rect x="0" y="6" width="668" height="120" rx="3" ry="3" fill="none" stroke="#d5d5d5" stroke-width="1" />
+      <rect x="12" y="0" width="84" height="14" fill="#f0f0f0" />
+      <text x="16" y="11" class="group-label">Resultados</text>
+
+      <!-- Mensagens de Resultado (fiel ao print) -->
+      <g transform="translate(16, 26)">
+        <text x="0" y="10" class="result-info res-init">Nenhuma conversão recente.</text>
+        <!-- Idêntico ao do print: -->
+        <text x="0" y="10" class="result-info res-proc">Processando documento...</text>
+        <!-- Concluído: -->
+        <g class="res-done">
+          <text x="0" y="2" class="result-info" font-weight="600">Origem: C:/Users/usuario/Documentos/exemplo.pdf (5 paginas | native_text)</text>
+          <text x="0" y="18" class="result-info" font-size="11.5" fill="#333333">• Markdown: exemplo.md   • HTML5: exemplo.html</text>
+        </g>
+      </g>
+
+      <!-- Botões de Ações Rápidas -->
+      <g transform="translate(16, 54)">
+        <!-- Estado Desabilitado (fiel ao print: fundo #f0f0f0, texto #808080) -->
+        <g class="btns-dis">
+          <rect x="0" y="0" width="145" height="24" rx="2" fill="#f0f0f0" stroke="#d0d0d0" stroke-width="1" />
+          <text x="72.5" y="12" class="btn-text" fill="#808080">Abrir Pasta de Destino</text>
+
+          <rect x="151" y="0" width="138" height="24" rx="2" fill="#f0f0f0" stroke="#d0d0d0" stroke-width="1" />
+          <text x="220" y="12" class="btn-text" fill="#808080">Visualizar Markdown</text>
+
+          <rect x="295" y="0" width="124" height="24" rx="2" fill="#f0f0f0" stroke="#d0d0d0" stroke-width="1" />
+          <text x="357" y="12" class="btn-text" fill="#808080">Visualizar HTML5</text>
+        </g>
+
+        <!-- Estado Habilitado (pós-conclusão: fundo padrão de botão, texto preto) -->
+        <g class="btns-act">
+          <rect x="0" y="0" width="145" height="24" rx="2" fill="url(#btn-grad)" stroke="#adadad" stroke-width="1" />
+          <text x="72.5" y="12" class="btn-text">Abrir Pasta de Destino</text>
+
+          <rect x="151" y="0" width="138" height="24" rx="2" fill="url(#btn-grad)" stroke="#adadad" stroke-width="1" />
+          <text x="220" y="12" class="btn-text">Visualizar Markdown</text>
+
+          <rect x="295" y="0" width="124" height="24" rx="2" fill="url(#btn-grad)" stroke="#adadad" stroke-width="1" />
+          <text x="357" y="12" class="btn-text">Visualizar HTML5</text>
+        </g>
+      </g>
+    </g>
+
+  </g>
+</svg>
